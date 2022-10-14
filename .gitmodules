@@ -1,0 +1,3 @@
+[submodule "PawnPP"]
+	path = PawnPP
+	url = https://github.com/namazso/PawnPP

@@ -1,0 +1,55 @@
+[Version]
+Signature	= "$WINDOWS NT$"
+Class		= PawnIO_Class
+ClassGuid	= {7c619961-f266-4c1b-8472-8d0047d6d47a}
+Provider	= %ManufacturerName%
+CatalogFile	= PawnIO.cat
+DriverVer	= 09/01/2022,1.0.0.0
+PnpLockdown	= 1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+; ================= Class section =====================
+
+[ClassInstall32]
+Addreg = PawnIOClassReg
+
+[PawnIOClassReg]
+HKR,,,0,%ClassName%
+HKR,,Icon,,-5
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+PawnIO.sys = 1,,
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[DefaultInstall.NT$ARCH$]
+CopyFiles = Drivers_Dir
+
+[Drivers_Dir]
+PawnIO.sys
+
+;-------------- Service installation
+[DefaultInstall.NT$ARCH$.Services]
+AddService = PawnIO,, PawnIO_Service_Inst
+
+; -------------- PawnIO driver install sections
+[PawnIO_Service_Inst]
+DisplayName    = %PawnIO.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 1               ; SERVICE_SYSTEM_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\PawnIO.sys
+
+[Strings]
+ManufacturerName	= "namazso"
+ClassName			= "PawnIO_Class"
+DiskName			= "PawnIO Installation Disk"
+PawnIO.DeviceDesc	= "PawnIO Device"
+PawnIO.SVCDESC		= "PawnIO Service"

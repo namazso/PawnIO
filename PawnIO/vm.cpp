@@ -622,7 +622,7 @@ NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID o
 
   ExReleaseFastMutex(&my_ctx->mutex);
   
-  return STATUS_SUCCESS;
+  return status;
 }
 
 NTSTATUS vm_destroy(PVOID ctx)

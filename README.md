@@ -1,6 +1,6 @@
 # PawnIO
 
-Driver source. For binary releases, see [PawnIOLib](https://github.com/namazso/PawnIOLib)
+Driver source. For binary releases, see [PawnIO.Releases](https://github.com/namazso/PawnIO.Releases)
 
 ## License
 

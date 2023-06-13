@@ -542,7 +542,7 @@ NTSTATUS vm_load_binary(PVOID& ctx, PVOID buffer, SIZE_T size)
 
   auto status = check_signature(mem, len, (uint8_t*)buffer + 4, sig_len);
 
-#ifdef DBG
+#ifdef PAWNIO_UNRESTRICTED
   DbgPrint("[PawnIO] Signature check result: %X\n", status);
   status = STATUS_SUCCESS;
 #endif

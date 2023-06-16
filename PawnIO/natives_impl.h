@@ -50,6 +50,7 @@
 #include "arch_detect.h"
 
 using cell = unsigned long long;
+using scell = long long;
 
 static_assert(sizeof(cell) == sizeof(void*));
 

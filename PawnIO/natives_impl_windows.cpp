@@ -48,6 +48,8 @@
 #include <ntddk.h>
 #include "natives_impl.h"
 
+#pragma warning(disable: 4309)
+
 cell get_arch()
 {
   return ARCH;
@@ -63,7 +65,7 @@ cell cpu_set_affinity(cell which, std::array<cell, 2>& old)
   PROCESSOR_NUMBER pnum{};
   const auto status = KeGetProcessorNumberFromIndex((ULONG)which, &pnum);
   if (!NT_SUCCESS(status))
-    return (cell)status;
+    return (cell)(scell)status;
 
   GROUP_AFFINITY ga{}, old_ga{};
   ga.Group = pnum.Group;
@@ -71,7 +73,7 @@ cell cpu_set_affinity(cell which, std::array<cell, 2>& old)
   KeSetSystemGroupAffinityThread(&ga, &old_ga);
   static_assert(sizeof(old_ga) == sizeof(cell[2]), "!!!");
   memcpy(old.data(), &old_ga, sizeof(old_ga));
-  return (cell)(old_ga.Group == 0 && old_ga.Mask == 0 ? STATUS_UNSUCCESSFUL : STATUS_SUCCESS);
+  return (cell)(scell)(old_ga.Group == 0 && old_ga.Mask == 0 ? STATUS_UNSUCCESSFUL : STATUS_SUCCESS);
 }
 
 cell cpu_restore_affinity(std::array<cell, 2> old)
@@ -80,9 +82,9 @@ cell cpu_restore_affinity(std::array<cell, 2> old)
   static_assert(sizeof(ga) == sizeof(cell[2]), "!!!");
   memcpy(&ga, old.data(), sizeof(ga));
   if (ga.Group == 0 && ga.Mask == 0)
-    return (cell)STATUS_UNSUCCESSFUL; // some idiot passed in the output of a failed cpu_set_affinity
+    return (cell)(scell)STATUS_UNSUCCESSFUL; // some idiot passed in the output of a failed cpu_set_affinity
   KeRevertToUserGroupAffinityThread(&ga);
-  return (cell)STATUS_SUCCESS;
+  return (cell)(scell)STATUS_SUCCESS;
 }
 
 void interrupts_disable() { _disable(); }
@@ -95,15 +97,15 @@ cell physical_read(cell pa, cell& v)
   phys.QuadPart = (LONGLONG)pa;
   const auto va = MmGetVirtualForPhysical(phys);
   if (!va)
-    return (cell)STATUS_UNSUCCESSFUL;
+    return (cell)(scell)STATUS_UNSUCCESSFUL;
   __try
   {
     v = (cell)*(T*)va;
-    return STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
@@ -114,15 +116,15 @@ cell physical_write(cell pa, cell v)
   phys.QuadPart = (LONGLONG)pa;
   const auto va = MmGetVirtualForPhysical(phys);
   if (!va)
-    return (cell)STATUS_UNSUCCESSFUL;
+    return (cell)(scell)STATUS_UNSUCCESSFUL;
   __try
   {
     *(T*)va = (T)v;
-    return STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
@@ -154,11 +156,11 @@ cell virtual_read(cell va, cell& v)
   __try
   {
     v = (cell)*(T*)va;
-    return STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
@@ -168,11 +170,11 @@ cell virtual_write(cell va, cell v)
   __try
   {
     *(T*)va = (T)v;
-    return STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
@@ -196,11 +198,11 @@ cell virtual_cmpxchg(cell va, cell exchange, cell comparand)
       _InterlockedCompareExchange64((int64_t volatile*)va, (int64_t)exchange, (int64_t)comparand);
       break;
     }
-    return STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
@@ -235,7 +237,7 @@ void virtual_free(cell va)
 NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length)
 {
   if (length == 0)
-    return STATUS_INVALID_PARAMETER;
+    return (cell)(scell)STATUS_INVALID_PARAMETER;
 
   PCI_SLOT_NUMBER slot{};
   slot.u.bits.DeviceNumber = device;
@@ -252,10 +254,10 @@ NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULONG offs
   );
 
   if (result == 0)
-    return STATUS_NOT_FOUND;
+    return (cell)(scell)STATUS_NOT_FOUND;
 
   if (result == 2 && vendor_id == PCI_INVALID_VENDORID)
-    return STATUS_DEVICE_DOES_NOT_EXIST;
+    return (cell)(scell)STATUS_DEVICE_DOES_NOT_EXIST;
 
   result = HalGetBusDataByOffset(
     PCIConfiguration,
@@ -267,21 +269,21 @@ NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULONG offs
   );
 
   if (result == 0)
-    return STATUS_NOT_FOUND;
+    return (cell)(scell)STATUS_NOT_FOUND;
 
   if (result == 2 && length != 2)
-    return STATUS_DEVICE_DOES_NOT_EXIST;
+    return (cell)(scell)STATUS_DEVICE_DOES_NOT_EXIST;
 
   if (result != length)
-    return STATUS_UNSUCCESSFUL;
+    return (cell)(scell)STATUS_UNSUCCESSFUL;
 
-  return STATUS_SUCCESS;
+  return (cell)(scell)STATUS_SUCCESS;
 }
 
 NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length)
 {
   if (length == 0)
-    return STATUS_INVALID_PARAMETER;
+    return (cell)(scell)STATUS_INVALID_PARAMETER;
 
   PCI_SLOT_NUMBER slot{};
   slot.u.bits.DeviceNumber = device;
@@ -298,10 +300,10 @@ NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, ULONG off
   );
 
   if (result == 0)
-    return STATUS_NOT_FOUND;
+    return (cell)(scell)STATUS_NOT_FOUND;
 
   if (result == 2 && vendor_id == PCI_INVALID_VENDORID)
-    return STATUS_DEVICE_DOES_NOT_EXIST;
+    return (cell)(scell)STATUS_DEVICE_DOES_NOT_EXIST;
 
   result = HalSetBusDataByOffset(
     PCIConfiguration,
@@ -313,9 +315,9 @@ NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, ULONG off
   );
 
   if (result != length)
-    return STATUS_UNSUCCESSFUL;
+    return (cell)(scell)STATUS_UNSUCCESSFUL;
 
-  return STATUS_SUCCESS;
+  return (cell)(scell)STATUS_SUCCESS;
 }
 
 #pragma warning(pop)
@@ -383,11 +385,11 @@ cell invoke(
   __try
   {
     retval = p(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15);
-    return STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
@@ -401,16 +403,16 @@ cell msr_read(cell msr, cell& value)
   value = 0;
   if ((msr & 0xFFFFFFFFFFF00000) != 0xD5300000)
   {
-    return (cell)STATUS_INVALID_PARAMETER;
+    return (cell)(scell)STATUS_INVALID_PARAMETER;
   }
   __try
   {
     value = (cell)arm_mrs((ULONG)msr);
-    return (cell)STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
@@ -418,17 +420,17 @@ cell msr_write(cell msr, cell value)
 {
   if ((msr & 0xFFFFFFFFFFF00000) != 0xD5300000)
   {
-    return (cell)STATUS_INVALID_PARAMETER;
+    return (cell)(scell)STATUS_INVALID_PARAMETER;
   }
 
   __try
   {
     arm_msr((ULONG)msr, (ULONG)value);
-    return (cell)STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
@@ -462,70 +464,34 @@ cell slwpcb() { return (cell)__slwpcb(); }
 
 cell msr_read(cell msr, cell& value)
 {
-  // clamp before the security check
+  // clamp
   msr = (ULONG)msr;
-
-  // noone should need these
-  /*constexpr static ULONG disallowed_msrs[] = {
-    0xC0000081, // STAR
-    0xC0000082, // LSTAR
-    0xC0000083, // CSTAR
-    0xC0000084, // SF_MASK
-    0xC0000100, // FS.Base
-    0xC0000101, // GS.Base
-    0xC0000102, // KernelGSbase
-    0x00000174, // SYSENTER_CS
-    0x00000175, // SYSENTER_ESP
-    0x00000176, // SYSENTER_EIP
-  };
-
-  for (auto e : disallowed_msrs)
-    if (msr == e)
-      return (cell)STATUS_ACCESS_DENIED;*/
 
   value = 0;
   __try
   {
     value = __readmsr((ULONG)msr);
-    return (cell)STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
 cell msr_write(cell msr, cell value)
 {
-  // clamp before the security check
+  // clamp
   msr = (ULONG)msr;
-
-  // noone should need these
-  /*constexpr static ULONG disallowed_msrs[] = {
-    0xC0000081, // STAR
-    0xC0000082, // LSTAR
-    0xC0000083, // CSTAR
-    0xC0000084, // SF_MASK
-    0xC0000100, // FS.Base
-    0xC0000101, // GS.Base
-    0xC0000102, // KernelGSbase
-    0x00000174, // SYSENTER_CS
-    0x00000175, // SYSENTER_ESP
-    0x00000176, // SYSENTER_EIP
-  };
-
-  for (auto e : disallowed_msrs)
-    if (msr == e)
-      return (cell)STATUS_ACCESS_DENIED;*/
 
   __try
   {
     __writemsr((ULONG)msr, value);
-    return (cell)STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
@@ -556,11 +522,11 @@ cell xcr_read(cell xcr, cell& value)
   __try
   {
     value = _xgetbv((ULONG)xcr);
-    return (cell)STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
@@ -569,11 +535,11 @@ cell xcr_write(cell xcr, cell value)
   __try
   {
     _xsetbv((ULONG)xcr, value);
-    return (cell)STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 
@@ -586,11 +552,11 @@ cell readpmc(cell pmc, cell& value)
   __try
   {
     value = __readpmc((ULONG)pmc);
-    return (cell)STATUS_SUCCESS;
+    return (cell)(scell)STATUS_SUCCESS;
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
-    return (cell)GetExceptionCode();
+    return (cell)(scell)GetExceptionCode();
   }
 }
 

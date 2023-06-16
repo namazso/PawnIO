@@ -393,6 +393,13 @@ cell invoke(
   }
 }
 
+cell microsleep(cell us)
+{
+  LARGE_INTEGER li{};
+  li.QuadPart = (scell)us * -10000;
+  return (cell)(scell)KeDelayExecutionThread(KernelMode, FALSE, &li);
+}
+
 #if defined(ARCH_A64)
 
 unsigned arm_mrs(unsigned instruction);

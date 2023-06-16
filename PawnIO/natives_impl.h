@@ -130,6 +130,8 @@ cell invoke(
   cell a15
 );
 
+cell microsleep(cell us);
+
 #if defined(ARCH_A64)
 
 #elif defined(ARCH_X64)

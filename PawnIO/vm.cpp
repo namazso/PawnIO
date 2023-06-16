@@ -419,6 +419,9 @@ const static amx64_loader::native_arg NATIVES[] =
   DEFINE_NATIVE(physical_write_dword),
   DEFINE_NATIVE(physical_write_qword),
 
+  DEFINE_NATIVE(io_space_map),
+  DEFINE_NATIVE(io_space_unmap),
+
   DEFINE_NATIVE(virtual_read_byte),
   DEFINE_NATIVE(virtual_read_word),
   DEFINE_NATIVE(virtual_read_dword),

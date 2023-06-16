@@ -681,7 +681,13 @@ NTSTATUS vm_destroy(PVOID ctx)
   if (ctx)
   {
     const auto my_ctx = (context*)ctx;
-    my_ctx->loader->~amx64_loader();
+    const auto loader = my_ctx->loader;
+    const auto fn = loader->get_public("unload");
+    if (fn) {
+        cell ret{};
+        loader->amx.call(fn, ret);
+    }
+    loader->~amx64_loader();
     ExFreePool(my_ctx);
   }
 

@@ -396,7 +396,7 @@ cell invoke(
 cell microsleep(cell us)
 {
   LARGE_INTEGER li{};
-  li.QuadPart = (scell)us * -10000;
+  li.QuadPart = (scell)us * -10;
   return (cell)(scell)KeDelayExecutionThread(KernelMode, FALSE, &li);
 }
 

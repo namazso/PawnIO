@@ -631,8 +631,8 @@ NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID o
 
   auto& amx = loader->amx;
 
-  const auto cell_in_buffer = (cell*)in_buffer;
-  const auto cell_in_count = in_size / sizeof(cell);
+  const auto cell_in_buffer = (cell*)in_buffer + 4;
+  const auto cell_in_count = in_size / sizeof(cell) - 4;
   cell cell_in_va{};
 
   const auto cell_out_buffer = (cell*)out_buffer;

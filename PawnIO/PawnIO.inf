@@ -91,7 +91,7 @@ DisplayName    = %PawnIO.SVCDESC%
 ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
 StartType      = 1               ; SERVICE_SYSTEM_START
 ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
-ServiceBinary  = %12%\PawnIO.sys
+ServiceBinary  = %13%\PawnIO.sys
 
 [Strings]
 ManufacturerName	= "namazso"

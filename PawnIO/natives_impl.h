@@ -133,6 +133,8 @@ cell invoke(
 cell microsleep(cell us);
 cell microsleep2(cell us);
 
+cell qpc(cell& frequency);
+
 #if defined(ARCH_A64)
 
 #elif defined(ARCH_X64)

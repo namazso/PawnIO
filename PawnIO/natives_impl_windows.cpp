@@ -405,8 +405,16 @@ cell microsleep(cell us)
 
 cell microsleep2(cell us)
 {
-	KeStallExecutionProcessor((ULONG)us);
-    return (cell)(scell)STATUS_SUCCESS;
+  KeStallExecutionProcessor((ULONG)us);
+  return (cell)(scell)STATUS_SUCCESS;
+}
+
+cell qpc(cell& frequency)
+{
+  LARGE_INTEGER freq{};
+  const auto v = KeQueryPerformanceCounter(&freq).QuadPart;
+  frequency = freq.QuadPart;
+  return v;
 }
 
 #if defined(ARCH_A64)

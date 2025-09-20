@@ -455,6 +455,8 @@ const static amx64_loader::native_arg NATIVES[] =
   DEFINE_NATIVE(microsleep),
   DEFINE_NATIVE(microsleep2),
 
+  DEFINE_NATIVE(qpc),
+
 #if defined(ARCH_A64)
 
 #elif defined(ARCH_X64)

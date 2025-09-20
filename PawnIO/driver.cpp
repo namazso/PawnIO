@@ -143,11 +143,19 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp) {
       if (irp_stack->FileObject->FsContext) {
         status = STATUS_ALREADY_INITIALIZED;
       } else {
+        PVOID new_ctx{};
         status = vm_load_binary(
-          &irp_stack->FileObject->FsContext,
+          &new_ctx,
           irp->AssociatedIrp.SystemBuffer,
           irp_stack->Parameters.DeviceIoControl.InputBufferLength
         );
+        if (NT_SUCCESS(status)) {
+          if (nullptr != _InterlockedCompareExchangePointer(&irp_stack->FileObject->FsContext, new_ctx, nullptr)) {
+            status = STATUS_UNSUCCESSFUL;
+            vm_destroy(new_ctx);
+            new_ctx = nullptr;
+          }
+        }
       }
       break;
 

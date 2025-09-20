@@ -519,6 +519,8 @@ struct context {
 NTSTATUS check_signature(const void* mem, size_t len, const uint8_t* sig, size_t sig_len);
 
 NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
+  *ctx = nullptr;
+
   if (size < 4)
     return STATUS_INVALID_PARAMETER;
   const auto sig_len = *(PULONG)buffer;
@@ -578,19 +580,10 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
 
   ExInitializeFastMutex(&my_ctx->mutex);
 
-  if (nullptr != _InterlockedCompareExchangePointer(ctx, my_ctx, nullptr)) {
-    status = STATUS_UNSUCCESSFUL;
-    goto fail_unload;
-  }
+  *ctx = my_ctx;
 
   return STATUS_SUCCESS;
 
-fail_unload:
-  const auto fn = loader->get_public("unload");
-  if (fn) {
-    cell ret{};
-    loader->amx.call(fn, ret);
-  }
 fail_destruct:
   loader->~amx64_loader();
   ExFreePool(my_ctx);

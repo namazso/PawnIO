@@ -185,6 +185,7 @@
       <AdditionalDependencies>$(DDK_LIB_PATH)ksecdd.lib;$(DDK_LIB_PATH)Wdmsec.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/Brepro /nocoffgrpinfo /PDBALTPATH:%_PDB% %(AdditionalOptions)</AdditionalOptions>
       <CETCompat>true</CETCompat>
+      <EntryPointSymbol>DriverEntry</EntryPointSymbol>
     </Link>
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>

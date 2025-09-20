@@ -45,28 +45,53 @@
 // exception.
 
 #include <ntddk.h>
-#include <wdmsec.h>
-#include <atomic>
 
 #include "ioctl.h"
 #include "vm.h"
-
-static std::atomic<LONG> g_refs = -1;
 
 static NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp);
 
 static void driver_unload(PDRIVER_OBJECT driver_object)
 {
   const auto device_object = driver_object->DeviceObject;
-  UNICODE_STRING device_dospath = RTL_CONSTANT_STRING(k_device_dospath);
-  
-  IoDeleteSymbolicLink(&device_dospath);
 
   if (device_object)
     IoDeleteDevice(device_object);
 }
 
 constexpr GUID k_device_class = { 0x7c619961, 0xf266, 0x4c1b, { 0x84, 0x72, 0x8d, 0x00, 0x47, 0xd6, 0xd4, 0x7a } };
+
+DECLARE_CONST_UNICODE_STRING(
+  NAME_IoCreateDeviceSecure,
+  L"IoCreateDeviceSecure"
+);
+
+_IRQL_requires_max_(PASSIVE_LEVEL)
+_Post_satisfies_(return <= 0)
+NTSTATUS
+IoCreateDeviceSecure(
+  _In_     PDRIVER_OBJECT      DriverObject,
+  _In_     ULONG               DeviceExtensionSize,
+  _In_opt_ PUNICODE_STRING     DeviceName,
+  _In_     DEVICE_TYPE         DeviceType,
+  _In_     ULONG               DeviceCharacteristics,
+  _In_     BOOLEAN             Exclusive,
+  _In_     PCUNICODE_STRING    DefaultSDDLString,
+  _In_opt_ LPCGUID             DeviceClassGuid,
+  _Out_
+  _At_(*DeviceObject,
+    __drv_allocatesMem(Mem)
+    _When_((((_In_function_class_(DRIVER_INITIALIZE)) || (_In_function_class_(DRIVER_DISPATCH)))),
+      __drv_aliasesMem)
+    _On_failure_(_Post_null_))
+  PDEVICE_OBJECT * DeviceObject
+)
+{
+  const auto p = (decltype(&IoCreateDeviceSecure))MmGetSystemRoutineAddress((PUNICODE_STRING)&NAME_IoCreateDeviceSecure);
+  return p(DriverObject, DeviceExtensionSize, DeviceName, DeviceType, DeviceCharacteristics, Exclusive, DefaultSDDLString, DeviceClassGuid, DeviceObject);
+}
+
+DECLARE_CONST_UNICODE_STRING(SDDL_DEVOBJ_SYS_ALL_ADM_ALL, L"D:P(A;;GA;;;SY)(A;;GA;;;BA)");
 
 EXTERN_C NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING registry_path)
 {
@@ -97,18 +122,7 @@ EXTERN_C NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING regi
   driver_object->MajorFunction[IRP_MJ_CLOSE] = dispatch_irp;
   driver_object->MajorFunction[IRP_MJ_DEVICE_CONTROL] = dispatch_irp;
 
-  UNICODE_STRING device_dospath = RTL_CONSTANT_STRING(k_device_dospath);
-  status = IoCreateSymbolicLink(&device_dospath, &device_path);
-
-  if (!NT_SUCCESS(status))
-  {
-    IoDeleteDevice(device_object);
-    return status;
-  }
-
   driver_object->Flags &= ~DO_DEVICE_INITIALIZING;
-
-  g_refs = 0;
 
   return status;
 }
@@ -126,33 +140,18 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp)
   switch (irp_stack->MajorFunction)
   {
   case IRP_MJ_CREATE:
-    ++g_refs;
     status = STATUS_SUCCESS;
     break;
 
   case IRP_MJ_CLOSE:
     if (irp_stack->FileObject->FsContext)
       vm_destroy(irp_stack->FileObject->FsContext);
-    --g_refs;
     status = STATUS_SUCCESS;
     break;
 
   case IRP_MJ_DEVICE_CONTROL:
     switch (irp_stack->Parameters.DeviceIoControl.IoControlCode)
     {
-    case IOCTL_PIO_GET_REFCOUNT:
-      if(irp_stack->Parameters.DeviceIoControl.OutputBufferLength == sizeof(LONG))
-      {
-        *(PLONG)irp->AssociatedIrp.SystemBuffer = g_refs;
-        irp->IoStatus.Information = sizeof(g_refs);
-        status = STATUS_SUCCESS;
-      }
-      else
-      {
-        status = STATUS_BUFFER_OVERFLOW;
-      }
-      break;
-
     case IOCTL_PIO_LOAD_BINARY:
       if (irp_stack->FileObject->FsContext)
       {

@@ -42,6 +42,7 @@
     <ClInclude Include="arch_detect.h" />
     <ClInclude Include="ioctl.h" />
     <ClInclude Include="natives_impl.h" />
+    <ClInclude Include="version.h" />
     <ClInclude Include="vm.h" />
   </ItemGroup>
   <ItemGroup>
@@ -302,6 +303,9 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseUnrestricted|ARM64'">true</ExcludedFromBuild>
     </MASM>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="PawnIO.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

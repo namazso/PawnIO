@@ -580,7 +580,7 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size)
   if (result != amx::loader_error::success)
   {
     status = STATUS_UNSUCCESSFUL;
-    goto fail_unload;
+    goto fail_destruct;
   }
 
   const auto main = loader->get_main();

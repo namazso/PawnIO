@@ -112,7 +112,7 @@ EXTERN_C NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING regi
   driver_object->MajorFunction[IRP_MJ_CLOSE] = dispatch_irp;
   driver_object->MajorFunction[IRP_MJ_DEVICE_CONTROL] = dispatch_irp;
 
-  driver_object->Flags &= ~DO_DEVICE_INITIALIZING;
+  device_object->Flags &= ~DO_DEVICE_INITIALIZING;
 
   return status;
 }

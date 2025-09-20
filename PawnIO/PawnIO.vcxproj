@@ -29,13 +29,16 @@
   <ItemGroup>
     <ClCompile Include="driver.cpp" />
     <ClCompile Include="msrmrs.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseUnrestricted|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="signature.cpp" />
     <ClCompile Include="vm.cpp" />
     <ClCompile Include="natives_impl_windows.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="x64.asm">
+      <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
+    </MASM>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="amx_loader.h" />
@@ -48,145 +51,54 @@
   <ItemGroup>
     <Inf Include="PawnIO.inf" />
   </ItemGroup>
+  <ItemGroup>
+    <FilesToPackage Include="$(TargetPath)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="PawnIO.rc" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{81038770-5789-48B5-8355-68B1FCCE4912}</ProjectGuid>
     <TemplateGuid>{497e31cb-056b-4f31-abb8-447fd55ee5a5}</TemplateGuid>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <MinimumVisualStudioVersion>12.0</MinimumVisualStudioVersion>
-    <Configuration>Debug</Configuration>
     <RootNamespace>PawnIO</RootNamespace>
     <WindowsTargetPlatformVersion>$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+  <PropertyGroup Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>KMDF</DriverType>
+    <DriverTargetPlatform>Windows Driver</DriverTargetPlatform>
+    <Driver_SpectreMitigation>Spectre</Driver_SpectreMitigation>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
-    <ConfigurationType>Driver</ConfigurationType>
-    <DriverType>KMDF</DriverType>
-    <DriverTargetPlatform>Windows Driver</DriverTargetPlatform>
-    <Driver_SpectreMitigation>Spectre</Driver_SpectreMitigation>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <TargetVersion>Windows10</TargetVersion>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
-    <ConfigurationType>Driver</ConfigurationType>
-    <DriverType>KMDF</DriverType>
-    <DriverTargetPlatform>Windows Driver</DriverTargetPlatform>
-    <Driver_SpectreMitigation>Spectre</Driver_SpectreMitigation>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseUnrestricted|x64'" Label="Configuration">
-    <TargetVersion>Windows10</TargetVersion>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
-    <ConfigurationType>Driver</ConfigurationType>
-    <DriverType>KMDF</DriverType>
-    <DriverTargetPlatform>Windows Driver</DriverTargetPlatform>
-    <Driver_SpectreMitigation>Spectre</Driver_SpectreMitigation>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
-    <TargetVersion>Windows10</TargetVersion>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
-    <ConfigurationType>Driver</ConfigurationType>
-    <DriverType>KMDF</DriverType>
-    <DriverTargetPlatform>Windows Driver</DriverTargetPlatform>
-    <Driver_SpectreMitigation>Spectre</Driver_SpectreMitigation>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
-    <TargetVersion>Windows10</TargetVersion>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
-    <ConfigurationType>Driver</ConfigurationType>
-    <DriverType>KMDF</DriverType>
-    <DriverTargetPlatform>Windows Driver</DriverTargetPlatform>
-    <Driver_SpectreMitigation>Spectre</Driver_SpectreMitigation>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseUnrestricted|ARM64'" Label="Configuration">
-    <TargetVersion>Windows10</TargetVersion>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
-    <ConfigurationType>Driver</ConfigurationType>
-    <DriverType>KMDF</DriverType>
-    <DriverTargetPlatform>Windows Driver</DriverTargetPlatform>
-    <Driver_SpectreMitigation>Spectre</Driver_SpectreMitigation>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <PropertyGroup Label="UserMacros" />
-  <PropertyGroup />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <PropertyGroup>
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseUnrestricted|x64'">
-    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
-    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseUnrestricted|ARM64'">
-    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-  </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <ItemDefinitionGroup>
     <ClCompile>
       <WppEnabled>false</WppEnabled>
-      <WppRecorderEnabled>true</WppRecorderEnabled>
-      <WppScanConfigurationData Condition="'%(ClCompile.ScanConfigurationData)' == ''">trace.h</WppScanConfigurationData>
-      <WppKernelMode>true</WppKernelMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalOptions>/Brepro %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/kernel /utf-8 /INTEGRITYCHECK /d1nodatetime /Brepro %(AdditionalOptions)</AdditionalOptions>
       <GuardEHContMetadata>true</GuardEHContMetadata>
       <ControlFlowGuard>false</ControlFlowGuard>
     </ClCompile>
-    <Inf />
     <Link>
-      <AdditionalDependencies>$(DDK_LIB_PATH)ksecdd.lib;$(DDK_LIB_PATH)Wdmsec.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/Brepro /nocoffgrpinfo %(AdditionalOptions)</AdditionalOptions>
-      <CETCompat>true</CETCompat>
-    </Link>
-    <DriverSign>
-      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
-    </DriverSign>
-    <Inf>
-      <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
-    </Inf>
-    <Inf>
-      <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
-      <TimeStamp>2.1.0.0</TimeStamp>
-      <DateStamp>09/01/2025</DateStamp>
-    </Inf>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ClCompile>
-      <WppEnabled>false</WppEnabled>
-      <WppRecorderEnabled>true</WppRecorderEnabled>
-      <WppScanConfigurationData Condition="'%(ClCompile.ScanConfigurationData)' == ''">trace.h</WppScanConfigurationData>
-      <WppKernelMode>true</WppKernelMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalOptions>/Brepro %(AdditionalOptions)</AdditionalOptions>
-      <GuardEHContMetadata>true</GuardEHContMetadata>
-      <ControlFlowGuard>false</ControlFlowGuard>
-    </ClCompile>
-    <Inf />
-    <Link>
-      <AdditionalDependencies>$(DDK_LIB_PATH)ksecdd.lib;$(DDK_LIB_PATH)Wdmsec.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/Brepro /nocoffgrpinfo /PDBALTPATH:%_PDB% %(AdditionalOptions)</AdditionalOptions>
-      <CETCompat>true</CETCompat>
+      <AdditionalDependencies>$(DDK_LIB_PATH)ksecdd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);$(OutDir)</AdditionalLibraryDirectories>
+      <AdditionalOptions>/EMITPOGOPHASEINFO /INTEGRITYCHECK /DEPENDENTLOADFLAG:0x800 /FILEALIGN:0x1000 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)'!='Debug'">/BREPRO /NOVCFEATURE /NOCOFFGRPINFO /PDBALTPATH:%_PDB% %(AdditionalOptions)</AdditionalOptions>
+      <CETCompat Condition="'$(Platform)'=='x64'">true</CETCompat>
+      <RandomizedBaseAddress>true</RandomizedBaseAddress>
       <EntryPointSymbol>DriverEntry</EntryPointSymbol>
     </Link>
     <DriverSign>
@@ -194,131 +106,10 @@
     </DriverSign>
     <Inf>
       <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
-    </Inf>
-    <Inf>
       <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
       <TimeStamp>2.1.0.0</TimeStamp>
       <DateStamp>09/01/2025</DateStamp>
     </Inf>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseUnrestricted|x64'">
-    <ClCompile>
-      <WppEnabled>false</WppEnabled>
-      <WppRecorderEnabled>true</WppRecorderEnabled>
-      <WppScanConfigurationData Condition="'%(ClCompile.ScanConfigurationData)' == ''">trace.h</WppScanConfigurationData>
-      <WppKernelMode>true</WppKernelMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalOptions>/Brepro %(AdditionalOptions)</AdditionalOptions>
-      <GuardEHContMetadata>true</GuardEHContMetadata>
-      <ControlFlowGuard>false</ControlFlowGuard>
-      <PreprocessorDefinitions>PAWNIO_UNRESTRICTED=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-    <Inf />
-    <Link>
-      <AdditionalDependencies>$(DDK_LIB_PATH)ksecdd.lib;$(DDK_LIB_PATH)Wdmsec.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/Brepro /nocoffgrpinfo /PDBALTPATH:%_PDB% %(AdditionalOptions)</AdditionalOptions>
-      <CETCompat>true</CETCompat>
-    </Link>
-    <DriverSign>
-      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
-    </DriverSign>
-    <Inf>
-      <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
-    </Inf>
-    <Inf>
-      <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
-      <TimeStamp>2.1.0.0</TimeStamp>
-      <DateStamp>09/01/2025</DateStamp>
-    </Inf>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
-    <ClCompile>
-      <WppEnabled>false</WppEnabled>
-      <WppRecorderEnabled>true</WppRecorderEnabled>
-      <WppScanConfigurationData Condition="'%(ClCompile.ScanConfigurationData)' == ''">trace.h</WppScanConfigurationData>
-      <WppKernelMode>true</WppKernelMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalOptions>/Brepro %(AdditionalOptions)</AdditionalOptions>
-      <GuardEHContMetadata>true</GuardEHContMetadata>
-      <ControlFlowGuard>false</ControlFlowGuard>
-    </ClCompile>
-    <Inf />
-    <Link>
-      <AdditionalDependencies>$(DDK_LIB_PATH)ksecdd.lib;$(DDK_LIB_PATH)Wdmsec.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/Brepro /nocoffgrpinfo /PDBALTPATH:%_PDB% %(AdditionalOptions)</AdditionalOptions>
-    </Link>
-    <Inf>
-      <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
-    </Inf>
-    <Inf>
-      <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
-      <TimeStamp>2.1.0.0</TimeStamp>
-      <DateStamp>09/01/2025</DateStamp>
-    </Inf>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseUnrestricted|ARM64'">
-    <ClCompile>
-      <WppEnabled>false</WppEnabled>
-      <WppRecorderEnabled>true</WppRecorderEnabled>
-      <WppScanConfigurationData Condition="'%(ClCompile.ScanConfigurationData)' == ''">trace.h</WppScanConfigurationData>
-      <WppKernelMode>true</WppKernelMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalOptions>/Brepro %(AdditionalOptions)</AdditionalOptions>
-      <GuardEHContMetadata>true</GuardEHContMetadata>
-      <ControlFlowGuard>false</ControlFlowGuard>
-      <PreprocessorDefinitions>PAWNIO_UNRESTRICTED=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-    <Inf />
-    <Link>
-      <AdditionalDependencies>$(DDK_LIB_PATH)ksecdd.lib;$(DDK_LIB_PATH)Wdmsec.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/Brepro /nocoffgrpinfo /PDBALTPATH:%_PDB% %(AdditionalOptions)</AdditionalOptions>
-    </Link>
-    <Inf>
-      <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
-    </Inf>
-    <Inf>
-      <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
-      <TimeStamp>2.1.0.0</TimeStamp>
-      <DateStamp>09/01/2025</DateStamp>
-    </Inf>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <ClCompile>
-      <WppEnabled>false</WppEnabled>
-      <WppRecorderEnabled>true</WppRecorderEnabled>
-      <WppScanConfigurationData Condition="'%(ClCompile.ScanConfigurationData)' == ''">trace.h</WppScanConfigurationData>
-      <WppKernelMode>true</WppKernelMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalOptions>/Brepro %(AdditionalOptions)</AdditionalOptions>
-      <GuardEHContMetadata>true</GuardEHContMetadata>
-      <ControlFlowGuard>false</ControlFlowGuard>
-    </ClCompile>
-    <Inf />
-    <Link>
-      <AdditionalDependencies>$(DDK_LIB_PATH)ksecdd.lib;$(DDK_LIB_PATH)Wdmsec.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/Brepro /nocoffgrpinfo %(AdditionalOptions)</AdditionalOptions>
-    </Link>
-    <Inf>
-      <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
-    </Inf>
-    <Inf>
-      <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
-      <TimeStamp>2.1.0.0</TimeStamp>
-      <DateStamp>09/01/2025</DateStamp>
-    </Inf>
-  </ItemDefinitionGroup>
-  <ItemGroup>
-    <FilesToPackage Include="$(TargetPath)" />
-  </ItemGroup>
-  <ItemGroup>
-    <MASM Include="x64.asm">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseUnrestricted|ARM64'">true</ExcludedFromBuild>
-    </MASM>
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="PawnIO.rc" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

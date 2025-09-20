@@ -537,7 +537,7 @@ struct context
 
 NTSTATUS check_signature(const void* mem, size_t len, const uint8_t* sig, size_t sig_len);
 
-NTSTATUS vm_load_binary(PVOID& ctx, PVOID buffer, SIZE_T size)
+NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size)
 {
   if (size < 4)
     return STATUS_INVALID_PARAMETER;
@@ -566,7 +566,7 @@ NTSTATUS vm_load_binary(PVOID& ctx, PVOID buffer, SIZE_T size)
   const auto loader = new (&my_ctx->loader_storage) amx64_loader();
   my_ctx->loader = loader;
 
-  const amx64_loader::callbacks_arg callbacks
+  constexpr amx64_loader::callbacks_arg callbacks
   {
     NATIVES,
     std::size(NATIVES),
@@ -579,9 +579,8 @@ NTSTATUS vm_load_binary(PVOID& ctx, PVOID buffer, SIZE_T size)
 
   if (result != amx::loader_error::success)
   {
-    loader->~amx64_loader();
-    ExFreePool(my_ctx);
-    return STATUS_UNSUCCESSFUL;
+    status = STATUS_UNSUCCESSFUL;
+    goto fail_unload;
   }
 
   const auto main = loader->get_main();
@@ -596,17 +595,29 @@ NTSTATUS vm_load_binary(PVOID& ctx, PVOID buffer, SIZE_T size)
       status = (NTSTATUS)ret;
 
     if (!NT_SUCCESS(status))
-    {
-      loader->~amx64_loader();
-      ExFreePool(my_ctx);
-      return status;
-    }
+      goto fail_destruct;
   }
 
   ExInitializeFastMutex(&my_ctx->mutex);
 
-  ctx = (PVOID)my_ctx;
+  if (nullptr != _InterlockedCompareExchangePointer(ctx, my_ctx, nullptr))
+  {
+    status = STATUS_UNSUCCESSFUL;
+    goto fail_unload;
+  }
+
   return STATUS_SUCCESS;
+
+fail_unload:
+  const auto fn = loader->get_public("unload");
+  if (fn) {
+    cell ret{};
+    loader->amx.call(fn, ret);
+  }
+fail_destruct:
+  loader->~amx64_loader();
+  ExFreePool(my_ctx);
+  return status;
 }
 
 NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID out_buffer, SIZE_T out_size)

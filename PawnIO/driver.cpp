@@ -160,7 +160,7 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp)
       else
       {
         status = vm_load_binary(
-          irp_stack->FileObject->FsContext,
+          &irp_stack->FileObject->FsContext,
           irp->AssociatedIrp.SystemBuffer,
           irp_stack->Parameters.DeviceIoControl.InputBufferLength
         );

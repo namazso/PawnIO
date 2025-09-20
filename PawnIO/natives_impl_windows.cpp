@@ -183,22 +183,25 @@ cell virtual_cmpxchg(cell va, cell exchange, cell comparand)
 {
   __try
   {
+    bool success = false;
     switch (sizeof(T))
     {
     case 1:
-      _InterlockedCompareExchange8((char volatile*)va, (char)exchange, (char)comparand);
+      success = (char)comparand == _InterlockedCompareExchange8((char volatile*)va, (char)exchange, (char)comparand);
       break;
     case 2:
-      _InterlockedCompareExchange16((short volatile*)va, (short)exchange, (short)comparand);
+      success = (short)comparand == _InterlockedCompareExchange16((short volatile*)va, (short)exchange, (short)comparand);
       break;
     case 4:
-      _InterlockedCompareExchange((long volatile*)va, (long)exchange, (long)comparand);
+      success = (long)comparand == _InterlockedCompareExchange((long volatile*)va, (long)exchange, (long)comparand);
       break;
     case 8:
-      _InterlockedCompareExchange64((int64_t volatile*)va, (int64_t)exchange, (int64_t)comparand);
+      success = (int64_t)comparand == _InterlockedCompareExchange64((int64_t volatile*)va, (int64_t)exchange, (int64_t)comparand);
+      break;
+    default:
       break;
     }
-    return (cell)(scell)STATUS_SUCCESS;
+    return (cell)(scell)(success ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL);
   }
   __except (EXCEPTION_EXECUTE_HANDLER)
   {
@@ -216,10 +219,10 @@ cell virtual_write_word(cell va, cell value) { return virtual_write<USHORT>(va, 
 cell virtual_write_dword(cell va, cell value) { return virtual_write<ULONG>(va, value); }
 cell virtual_write_qword(cell va, cell value) { return virtual_write<ULONG64>(va, value); }
 
-cell virtual_cmpxchg_byte(cell va, cell exchange, cell comparand) { return virtual_cmpxchg<UCHAR>(va, exchange, comparand); }
-cell virtual_cmpxchg_word(cell va, cell exchange, cell comparand) { return virtual_cmpxchg<USHORT>(va, exchange, comparand); }
-cell virtual_cmpxchg_dword(cell va, cell exchange, cell comparand) { return virtual_cmpxchg<ULONG>(va, exchange, comparand); }
-cell virtual_cmpxchg_qword(cell va, cell exchange, cell comparand) { return virtual_cmpxchg<ULONG64>(va, exchange, comparand); }
+cell virtual_cmpxchg_byte2(cell va, cell exchange, cell comparand) { return virtual_cmpxchg<UCHAR>(va, exchange, comparand); }
+cell virtual_cmpxchg_word2(cell va, cell exchange, cell comparand) { return virtual_cmpxchg<USHORT>(va, exchange, comparand); }
+cell virtual_cmpxchg_dword2(cell va, cell exchange, cell comparand) { return virtual_cmpxchg<ULONG>(va, exchange, comparand); }
+cell virtual_cmpxchg_qword2(cell va, cell exchange, cell comparand) { return virtual_cmpxchg<ULONG64>(va, exchange, comparand); }
 
 cell virtual_alloc(cell size)
 {

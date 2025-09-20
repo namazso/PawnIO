@@ -89,10 +89,10 @@ cell virtual_write_word(cell va, cell value);
 cell virtual_write_dword(cell va, cell value);
 cell virtual_write_qword(cell va, cell value);
 
-cell virtual_cmpxchg_byte(cell va, cell exchange, cell comparand);
-cell virtual_cmpxchg_word(cell va, cell exchange, cell comparand);
-cell virtual_cmpxchg_dword(cell va, cell exchange, cell comparand);
-cell virtual_cmpxchg_qword(cell va, cell exchange, cell comparand);
+cell virtual_cmpxchg_byte2(cell va, cell exchange, cell comparand);
+cell virtual_cmpxchg_word2(cell va, cell exchange, cell comparand);
+cell virtual_cmpxchg_dword2(cell va, cell exchange, cell comparand);
+cell virtual_cmpxchg_qword2(cell va, cell exchange, cell comparand);
 
 cell virtual_alloc(cell size);
 void virtual_free(cell va);

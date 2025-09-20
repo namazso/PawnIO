@@ -432,10 +432,10 @@ const static amx64_loader::native_arg NATIVES[] =
   DEFINE_NATIVE(virtual_write_dword),
   DEFINE_NATIVE(virtual_write_qword),
 
-  DEFINE_NATIVE(virtual_cmpxchg_byte),
-  DEFINE_NATIVE(virtual_cmpxchg_word),
-  DEFINE_NATIVE(virtual_cmpxchg_dword),
-  DEFINE_NATIVE(virtual_cmpxchg_qword),
+  DEFINE_NATIVE(virtual_cmpxchg_byte2),
+  DEFINE_NATIVE(virtual_cmpxchg_word2),
+  DEFINE_NATIVE(virtual_cmpxchg_dword2),
+  DEFINE_NATIVE(virtual_cmpxchg_qword2),
 
   DEFINE_NATIVE(virtual_alloc),
   DEFINE_NATIVE(virtual_free),

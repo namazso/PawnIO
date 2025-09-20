@@ -49,8 +49,7 @@
 constexpr static ULONG k_device_type = 41394;
 constexpr static wchar_t k_device_path[] = L"\\Device\\PawnIO";
 
-enum IoCtls : ULONG
-{
+enum : ULONG {
   IOCTL_PIO_LOAD_BINARY = CTL_CODE(k_device_type, 0x821, METHOD_BUFFERED, FILE_ANY_ACCESS),
   IOCTL_PIO_EXECUTE_FN = CTL_CODE(k_device_type, 0x841, METHOD_BUFFERED, FILE_ANY_ACCESS)
 };

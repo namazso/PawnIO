@@ -48,10 +48,8 @@
 #include "../PawnPP/amx.h"
 #include <algorithm>
 
-namespace amx
-{
-  enum class loader_error
-  {
+namespace amx {
+  enum class loader_error {
     success,
     invalid_file,
     unsupported_file_version,
@@ -62,19 +60,16 @@ namespace amx
     unknown
   };
 
-  namespace detail
-  {
+  namespace detail {
     template <typename T>
-    static T byteswap(T t)
-    {
+    static T byteswap(T t) {
       for (size_t i = 0; i < sizeof(t) / 2; ++i)
         std::swap(*(((char*)&t) + i), *((char*)&t + sizeof(t) - 1 - i));
       return t;
     }
 
     template <typename T>
-    static T from_le(T t)
-    {
+    static T from_le(T t) {
 #if defined(BIG_ENDIAN)
       return byteswap(t);
 #elif defined(LITTLE_ENDIAN)
@@ -85,20 +80,18 @@ namespace amx
     }
 
     template <typename T>
-    static T read_le(const uint8_t* p)
-    {
+    static T read_le(const uint8_t* p) {
       T t{};
       memcpy(&t, p, sizeof(t));
       t = from_le(t);
       return t;
     }
-    
+
     template <typename T>
-    static T align_up(T value, size_t align)
-    {
+    static T align_up(T value, size_t align) {
       return (T)((value + align - 1) / align * align);
     }
-    
+
     template <typename Fn>
     static bool iter_valarray(
       const uint8_t* buf,
@@ -107,8 +100,7 @@ namespace amx
       size_t end_offset,
       size_t entry_size,
       Fn fn = {}
-    )
-    {
+    ) {
       const auto begin = buf + begin_offset;
       const auto end = buf + end_offset;
       const auto size = (size_t)(end - begin);
@@ -134,27 +126,30 @@ namespace amx
       size_t end_offset,
       size_t entry_size,
       size_t& count
-    )
-    {
+    ) {
       // local to help the compiler optimize
       size_t count_local{};
-      const auto ret =  iter_valarray(buf, buf_size, begin_offset, end_offset, entry_size, [&count_local](const uint8_t*)
-        {
+      const auto ret = iter_valarray(
+        buf,
+        buf_size,
+        begin_offset,
+        end_offset,
+        entry_size,
+        [&count_local](const uint8_t*) {
           ++count_local;
           return true;
         });
       count = count_local;
       return ret;
     }
-    
+
     template <typename T>
     static void alloc_from_buffer_aligned(
       uint8_t*& buf,
       T*& alloc_out_buf,
       size_t& alloc_out_count,
       size_t alloc_count
-    )
-    {
+    ) {
       alloc_out_buf = (T*)buf;
       alloc_out_count = alloc_count;
       buf += align_up(alloc_count * sizeof(*alloc_out_buf), MEMORY_ALLOCATION_ALIGNMENT);
@@ -162,8 +157,7 @@ namespace amx
   }
 
   template <typename Amx>
-  class loader
-  {
+  class loader {
   public:
     using amx_t = Amx;
 
@@ -173,39 +167,34 @@ namespace amx
 
   private:
     constexpr static uint16_t expected_magic =
-      cell_bits == 32 ? 0xF1E0 :
-      cell_bits == 64 ? 0xF1E1 :
-      cell_bits == 16 ? 0xF1E2 :
-      0;
+      cell_bits == 32 ? 0xF1E0 : cell_bits == 64 ? 0xF1E1 : cell_bits == 16 ? 0xF1E2 : 0;
 
-    enum : uint32_t
-    {
-      flag_overlay    = 1 << 0,
-      flag_debug      = 1 << 1,
-      flag_nochecks   = 1 << 2,
-      flag_sleep      = 1 << 3,
-      flag_dseg_init  = 1 << 5,
+    enum : uint32_t {
+      flag_overlay = 1 << 0,
+      flag_debug = 1 << 1,
+      flag_nochecks = 1 << 2,
+      flag_sleep = 1 << 3,
+      flag_dseg_init = 1 << 5,
     };
-    
+
     cell* _code_ptr{};
     size_t _code_count{};
     cell* _data_ptr{};
     size_t _data_count{};
 
   public:
-    amx_t amx{ &amx_callback_wrapper, this };
-    
+    amx_t amx{&amx_callback_wrapper, this};
+
     using native_fn = error(*)(amx_t* amx, loader* loader, void* user, cell argc, cell argv, cell& retval);
     using single_step_fn = error(*)(amx_t* amx, loader* loader, void* user);
     using break_fn = error(*)(amx_t* amx, loader* loader, void* user);
 
-    struct native_arg
-    {
+    struct native_arg {
       const char* name;
       native_fn callback;
     };
-    struct callbacks_arg
-    {
+
+    struct callbacks_arg {
       const native_arg* natives;
       size_t natives_count;
       single_step_fn on_single_step;
@@ -226,39 +215,42 @@ namespace amx
 
     std::pair<const char*, cell>* _pubvars_ptr{};
     size_t _pubvars_count{};
-    
+
     cell _main{};
 
     void* _alloc{};
 
   public:
-    cell get_public(const char* v)
-    {
+    cell get_public(const char* v) {
       const auto begin = _publics_ptr;
       const auto end = begin + _publics_count;
-      const auto result = std::find_if(begin, end, [v](std::pair<const char*, cell>& a)
-        {
+      const auto result = std::find_if(
+        begin,
+        end,
+        [v](std::pair<const char*, cell>& a) {
           return 0 == strcmp(v, a.first);
         });
 
       return result == end ? 0 : result->second;
     }
-    cell get_pubvar(const char* v)
-    {
+
+    cell get_pubvar(const char* v) {
       const auto begin = _pubvars_ptr;
       const auto end = begin + _pubvars_count;
-      const auto result = std::find_if(begin, end, [v](std::pair<const char*, cell>& a)
-        {
+      const auto result = std::find_if(
+        begin,
+        end,
+        [v](std::pair<const char*, cell>& a) {
           return 0 == strcmp(v, a.first);
         });
 
       return result == end ? 0 : result->second;
     }
+
     cell get_main() { return _main; }
 
   private:
-    error amx_callback(cell index, cell stk, cell& pri)
-    {
+    error amx_callback(cell index, cell stk, cell& pri) {
       if (index == amx_t::cbid_single_step)
         return _on_single_step ? _on_single_step(&amx, this, _callback_user_data) : error::success;
       if (index == amx_t::cbid_break)
@@ -271,14 +263,12 @@ namespace amx
       return _natives_ptr[(size_t)index](&amx, this, _callback_user_data, (*pargc / sizeof(cell)), stk + sizeof(cell), pri);
     }
 
-    static error amx_callback_wrapper(amx_t*, void* user_data, cell index, cell stk, cell& pri)
-    {
+    static error amx_callback_wrapper(amx_t*, void* user_data, cell index, cell stk, cell& pri) {
       return ((loader*)user_data)->amx_callback(index, stk, pri);
     }
 
   public:
-    loader_error init(const uint8_t* buf, size_t buf_size, const callbacks_arg& callbacks)
-    {
+    loader_error init(const uint8_t* buf, size_t buf_size, const callbacks_arg& callbacks) {
       static_assert(expected_magic != 0, "unsupported cell size");
       using namespace detail;
 
@@ -307,10 +297,8 @@ namespace amx
       const auto tags = read_le<uint32_t>(buf + 48);
       //const auto nametable = read_le<uint32_t>(buf + 52);
       //const auto overlays = read_le<uint32_t>(buf + 56);
-      if (magic != expected_magic)
-      {
-        switch (magic)
-        {
+      if (magic != expected_magic) {
+        switch (magic) {
         case 0xF1E0:
         case 0xF1E1:
         case 0xF1E2:
@@ -329,7 +317,7 @@ namespace amx
         return loader_error::feature_not_supported;
       if (defsize < 8)
         return loader_error::invalid_file;
-      
+
       size_t code_count{};
       if (!count_valarray(buf, buf_size, cod, dat, sizeof(cell), code_count))
         return loader_error::invalid_file;
@@ -337,7 +325,7 @@ namespace amx
       size_t data_count{};
       if (!count_valarray(buf, buf_size, dat, hea, sizeof(cell), data_count))
         return loader_error::invalid_file;
-      
+
       const auto extra_size = (stp - hea) + sizeof(cell) - 1;
       const auto data_alloc_count = data_count + extra_size / sizeof(cell);
 
@@ -353,8 +341,7 @@ namespace amx
         publics,
         natives,
         defsize,
-        [&](const uint8_t* p)
-        {
+        [&](const uint8_t* p) {
           //const auto address = read_le<uint32_t>(p);
           const auto nameofs = read_le<uint32_t>(p + 4);
           auto nameend = nameofs;
@@ -384,8 +371,7 @@ namespace amx
         natives,
         libraries,
         defsize,
-        [&](const uint8_t* p)
-        {
+        [&](const uint8_t* p) {
           const auto nameofs = read_le<uint32_t>(p + 4);
           auto nameend = nameofs;
           for (; nameend < buf_size; ++nameend)
@@ -402,8 +388,7 @@ namespace amx
             callbacks_natives_end,
             [&begin](const native_arg& current) { return 0 == strcmp(begin, current.name); }
           );
-          if (result == callbacks_natives_end)
-          {
+          if (result == callbacks_natives_end) {
             native_not_found = true;
             return false;
           }
@@ -426,8 +411,7 @@ namespace amx
         pubvars,
         tags,
         defsize,
-        [&](const uint8_t* p)
-        {
+        [&](const uint8_t* p) {
           //const auto address = read_le<uint32_t>(p);
           const auto nameofs = read_le<uint32_t>(p + 4);
           auto nameend = nameofs;
@@ -448,14 +432,14 @@ namespace amx
 
       if (!success)
         return loader_error::invalid_file;
-      
+
       const size_t alloc_size = 0
-        + align_up(code_count * sizeof(cell), MEMORY_ALLOCATION_ALIGNMENT)
-        + align_up(data_alloc_count * sizeof(cell), MEMORY_ALLOCATION_ALIGNMENT)
-        + align_up(publics_count * sizeof(*_publics_ptr), MEMORY_ALLOCATION_ALIGNMENT)
-        + align_up(pubvars_count * sizeof(*_publics_ptr), MEMORY_ALLOCATION_ALIGNMENT)
-        + align_up(natives_count * sizeof(*_publics_ptr), MEMORY_ALLOCATION_ALIGNMENT)
-        + string_buffer_size;
+                                + align_up(code_count * sizeof(cell), MEMORY_ALLOCATION_ALIGNMENT)
+                                + align_up(data_alloc_count * sizeof(cell), MEMORY_ALLOCATION_ALIGNMENT)
+                                + align_up(publics_count * sizeof(*_publics_ptr), MEMORY_ALLOCATION_ALIGNMENT)
+                                + align_up(pubvars_count * sizeof(*_publics_ptr), MEMORY_ALLOCATION_ALIGNMENT)
+                                + align_up(natives_count * sizeof(*_publics_ptr), MEMORY_ALLOCATION_ALIGNMENT)
+                                + string_buffer_size;
 
       const auto alloc = ExAllocatePoolZero(NonPagedPoolNxCacheAligned, alloc_size, 'LxmA');
       if (!alloc)
@@ -484,7 +468,7 @@ namespace amx
       memcpy(_data_ptr, buf + dat, hea - dat);
       for (size_t i = 0; i < _code_count; ++i)
         _data_ptr[i] = from_le(_data_ptr[i]);
-      
+
       cell code_base{};
       bool result = amx.mem.code().map(_code_ptr, _code_count, code_base);
       if (!result)
@@ -503,8 +487,7 @@ namespace amx
         publics,
         natives,
         defsize,
-        [&](const uint8_t* p)
-        {
+        [&](const uint8_t* p) {
           const auto address = read_le<uint32_t>(p);
           const auto nameofs = read_le<uint32_t>(p + 4);
           auto nameend = nameofs;
@@ -519,8 +502,8 @@ namespace amx
           char* name = string_buffer;
           string_buffer += end - begin + 1;
           memcpy(name, begin, end - begin);
-          
-          this->_publics_ptr[publics_counter++] = { name, address };
+
+          this->_publics_ptr[publics_counter++] = {name, address};
           return true;
         }
       );
@@ -533,8 +516,7 @@ namespace amx
         natives,
         libraries,
         defsize,
-        [&](const uint8_t* p)
-        {
+        [&](const uint8_t* p) {
           const auto nameofs = read_le<uint32_t>(p + 4);
           auto nameend = nameofs;
           for (; nameend < buf_size; ++nameend)
@@ -551,8 +533,7 @@ namespace amx
             callbacks_natives_end,
             [&begin](const native_arg& current) { return 0 == strcmp(begin, current.name); }
           );
-          if (result_it == callbacks_natives_end)
-          {
+          if (result_it == callbacks_natives_end) {
             native_not_found = true;
             return false;
           }
@@ -569,8 +550,7 @@ namespace amx
         pubvars,
         tags,
         defsize,
-        [&](const uint8_t* p)
-        {
+        [&](const uint8_t* p) {
           const auto address = read_le<uint32_t>(p);
           const auto nameofs = read_le<uint32_t>(p + 4);
           auto nameend = nameofs;
@@ -588,7 +568,7 @@ namespace amx
           string_buffer += end - begin + 1;
           memcpy(name, begin, end - begin);
 
-          this->_pubvars_ptr[pubvars_counter++] = { name, address };
+          this->_pubvars_ptr[pubvars_counter++] = {name, address};
           return true;
         }
       );
@@ -602,18 +582,17 @@ namespace amx
 
       amx.STK = amx.STP = (cell)((_data_count - 1) * sizeof(cell));
       amx.HEA = (cell)(data_count * sizeof(cell));
-      
+
       return loader_error::success;
     }
 
     loader() = default;
-    loader(const uint8_t* buf, size_t buf_size, const callbacks_arg& callbacks)
-    {
+
+    loader(const uint8_t* buf, size_t buf_size, const callbacks_arg& callbacks) {
       init(buf, buf_size, callbacks);
     }
 
-    ~loader()
-    {
+    ~loader() {
       if (_alloc)
         ExFreePool(_alloc);
     }

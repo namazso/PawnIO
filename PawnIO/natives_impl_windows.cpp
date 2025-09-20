@@ -50,18 +50,15 @@
 
 #pragma warning(disable: 4309)
 
-cell get_arch()
-{
+cell get_arch() {
   return ARCH;
 }
 
-cell cpu_count()
-{
+cell cpu_count() {
   return KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
 }
 
-cell cpu_set_affinity(cell which, std::array<cell, 2>& old)
-{
+cell cpu_set_affinity(cell which, std::array<cell, 2>& old) {
   PROCESSOR_NUMBER pnum{};
   const auto status = KeGetProcessorNumberFromIndex((ULONG)which, &pnum);
   if (!NT_SUCCESS(status))
@@ -76,8 +73,7 @@ cell cpu_set_affinity(cell which, std::array<cell, 2>& old)
   return (cell)(scell)(old_ga.Group == 0 && old_ga.Mask == 0 ? STATUS_UNSUCCESSFUL : STATUS_SUCCESS);
 }
 
-cell cpu_restore_affinity(std::array<cell, 2> old)
-{
+cell cpu_restore_affinity(std::array<cell, 2> old) {
   GROUP_AFFINITY ga{};
   static_assert(sizeof(ga) == sizeof(cell[2]), "!!!");
   memcpy(&ga, old.data(), sizeof(ga));
@@ -91,39 +87,31 @@ void interrupts_disable() { _disable(); }
 void interrupts_enable() { _enable(); }
 
 template <typename T>
-static cell physical_read(cell pa, cell& v)
-{
+static cell physical_read(cell pa, cell& v) {
   PHYSICAL_ADDRESS phys;
   phys.QuadPart = (LONGLONG)pa;
   const auto va = MmGetVirtualForPhysical(phys);
   if (!va)
     return (cell)(scell)STATUS_UNSUCCESSFUL;
-  __try
-  {
+  __try {
     v = (cell)*(T*)va;
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
 
 template <typename T>
-static cell physical_write(cell pa, cell v)
-{
+static cell physical_write(cell pa, cell v) {
   PHYSICAL_ADDRESS phys;
   phys.QuadPart = (LONGLONG)pa;
   const auto va = MmGetVirtualForPhysical(phys);
   if (!va)
     return (cell)(scell)STATUS_UNSUCCESSFUL;
-  __try
-  {
+  __try {
     *(T*)va = (T)v;
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
@@ -138,54 +126,41 @@ cell physical_write_word(cell pa, cell value) { return physical_write<USHORT>(pa
 cell physical_write_dword(cell pa, cell value) { return physical_write<ULONG>(pa, value); }
 cell physical_write_qword(cell pa, cell value) { return physical_write<ULONG64>(pa, value); }
 
-cell io_space_map(cell pa, cell size)
-{
+cell io_space_map(cell pa, cell size) {
   PHYSICAL_ADDRESS physical;
   physical.QuadPart = (scell)pa;
   return (cell)MmMapIoSpace(physical, size, MmNonCached);
 }
 
-void io_space_unmap(cell va, cell size)
-{
+void io_space_unmap(cell va, cell size) {
   MmUnmapIoSpace((PVOID)va, size);
 }
 
 template <typename T>
-static cell virtual_read(cell va, cell& v)
-{
-  __try
-  {
+static cell virtual_read(cell va, cell& v) {
+  __try {
     v = (cell)*(T*)va;
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
 
 template <typename T>
-static cell virtual_write(cell va, cell v)
-{
-  __try
-  {
+static cell virtual_write(cell va, cell v) {
+  __try {
     *(T*)va = (T)v;
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
 
 template <typename T>
-static cell virtual_cmpxchg(cell va, cell exchange, cell comparand)
-{
-  __try
-  {
+static cell virtual_cmpxchg(cell va, cell exchange, cell comparand) {
+  __try {
     bool success = false;
-    switch (sizeof(T))
-    {
+    switch (sizeof(T)) {
     case 1:
       success = (char)comparand == _InterlockedCompareExchange8((char volatile*)va, (char)exchange, (char)comparand);
       break;
@@ -202,9 +177,7 @@ static cell virtual_cmpxchg(cell va, cell exchange, cell comparand)
       break;
     }
     return (cell)(scell)(success ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL);
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
@@ -224,21 +197,18 @@ cell virtual_cmpxchg_word2(cell va, cell exchange, cell comparand) { return virt
 cell virtual_cmpxchg_dword2(cell va, cell exchange, cell comparand) { return virtual_cmpxchg<ULONG>(va, exchange, comparand); }
 cell virtual_cmpxchg_qword2(cell va, cell exchange, cell comparand) { return virtual_cmpxchg<ULONG64>(va, exchange, comparand); }
 
-cell virtual_alloc(cell size)
-{
+cell virtual_alloc(cell size) {
   return (cell)ExAllocatePoolZero(NonPagedPoolNx, size, 'nwaP');
 }
 
-void virtual_free(cell va)
-{
+void virtual_free(cell va) {
   ExFreePoolWithTag((PVOID)va, 'nwaP');
 }
 
 #pragma warning(push)
 #pragma warning(disable: 4996)
 
-static NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length)
-{
+static NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length) {
   if (length == 0)
     return STATUS_INVALID_PARAMETER;
 
@@ -283,8 +253,7 @@ static NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULO
   return STATUS_SUCCESS;
 }
 
-static NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length)
-{
+static NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length) {
   if (length == 0)
     return STATUS_INVALID_PARAMETER;
 
@@ -326,8 +295,7 @@ static NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, UL
 #pragma warning(pop)
 
 template <typename T>
-static cell pci_config_read(cell bus, cell device, cell function, cell offset, cell& value)
-{
+static cell pci_config_read(cell bus, cell device, cell function, cell offset, cell& value) {
   T t{};
   const auto status = (cell)(scell)pci_config_read_raw((ULONG)bus, (ULONG)device, (ULONG)function, (ULONG)offset, &t, sizeof(t));
   value = t;
@@ -335,8 +303,7 @@ static cell pci_config_read(cell bus, cell device, cell function, cell offset, c
 }
 
 template <typename T>
-static cell pci_config_write(cell bus, cell device, cell function, cell offset, cell value)
-{
+static cell pci_config_write(cell bus, cell device, cell function, cell offset, cell value) {
   T t{(T)value};
   return (cell)(scell)pci_config_write_raw((ULONG)bus, (ULONG)device, (ULONG)function, (ULONG)offset, &t, sizeof(t));
 }
@@ -351,8 +318,7 @@ cell pci_config_write_word(cell bus, cell device, cell function, cell offset, ce
 cell pci_config_write_dword(cell bus, cell device, cell function, cell offset, cell value) { return pci_config_write<ULONG>(bus, device, function, offset, value); }
 cell pci_config_write_qword(cell bus, cell device, cell function, cell offset, cell value) { return pci_config_write<ULONG64>(bus, device, function, offset, value); }
 
-cell get_proc_address(const char* name)
-{
+cell get_proc_address(const char* name) {
   const auto len = strlen(name);
   wchar_t name_w[1024]{};
   const auto maxlen = min(len, std::size(name_w) - 1);
@@ -382,35 +348,28 @@ cell invoke(
   cell a13,
   cell a14,
   cell a15
-)
-{
+) {
   const auto p = (uintptr_t(*)(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t))address;
-  __try
-  {
+  __try {
     retval = p(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15);
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
 
-cell microsleep(cell us)
-{
+cell microsleep(cell us) {
   LARGE_INTEGER li;
   li.QuadPart = (scell)us * -10;
   return (cell)(scell)KeDelayExecutionThread(KernelMode, FALSE, &li);
 }
 
-cell microsleep2(cell us)
-{
+cell microsleep2(cell us) {
   KeStallExecutionProcessor((ULONG)us);
   return (cell)(scell)STATUS_SUCCESS;
 }
 
-cell qpc(cell& frequency)
-{
+cell qpc(cell& frequency) {
   LARGE_INTEGER freq{};
   const auto v = KeQueryPerformanceCounter(&freq).QuadPart;
   frequency = freq.QuadPart;
@@ -422,38 +381,28 @@ cell qpc(cell& frequency)
 unsigned arm_mrs(unsigned instruction);
 void arm_msr(unsigned instruction, unsigned v);
 
-cell msr_read(cell msr, cell& value)
-{
+cell msr_read(cell msr, cell& value) {
   value = 0;
-  if ((msr & 0xFFFFFFFFFFF00000) != 0xD5300000)
-  {
+  if ((msr & 0xFFFFFFFFFFF00000) != 0xD5300000) {
     return (cell)(scell)STATUS_INVALID_PARAMETER;
   }
-  __try
-  {
+  __try {
     value = (cell)arm_mrs((ULONG)msr);
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
 
-cell msr_write(cell msr, cell value)
-{
-  if ((msr & 0xFFFFFFFFFFF00000) != 0xD5300000)
-  {
+cell msr_write(cell msr, cell value) {
+  if ((msr & 0xFFFFFFFFFFF00000) != 0xD5300000) {
     return (cell)(scell)STATUS_INVALID_PARAMETER;
   }
 
-  __try
-  {
+  __try {
     arm_msr((ULONG)msr, (ULONG)value);
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
@@ -464,8 +413,7 @@ cell msr_write(cell msr, cell value)
 
 extern "C" ULONG __fastcall _dell(ULONG* smm);
 
-cell query_dell_smm(std::array<cell, 6> in, std::array<cell, 6>& out)
-{
+cell query_dell_smm(std::array<cell, 6> in, std::array<cell, 6>& out) {
   ULONG regs[6];
   for (auto i = 0; i < 6; ++i)
     regs[i] = (ULONG)in[i];
@@ -486,41 +434,32 @@ cell io_in_dword(cell port) { return __indword((USHORT)port); }
 void llwpcb(cell addr) { __llwpcb((void*)addr); }
 cell slwpcb() { return (cell)__slwpcb(); }
 
-cell msr_read(cell msr, cell& value)
-{
+cell msr_read(cell msr, cell& value) {
   // clamp
   msr = (ULONG)msr;
 
   value = 0;
-  __try
-  {
+  __try {
     value = __readmsr((ULONG)msr);
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
 
-cell msr_write(cell msr, cell value)
-{
+cell msr_write(cell msr, cell value) {
   // clamp
   msr = (ULONG)msr;
 
-  __try
-  {
+  __try {
     __writemsr((ULONG)msr, value);
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
 
-void cpuid(cell leaf, cell subleaf, std::array<cell, 4>& out)
-{
+void cpuid(cell leaf, cell subleaf, std::array<cell, 4>& out) {
   int out32[4];
   __cpuidex(out32, (int)leaf, (int)subleaf);
   for (size_t i = 0; i < 4; ++i)
@@ -529,8 +468,7 @@ void cpuid(cell leaf, cell subleaf, std::array<cell, 4>& out)
 
 extern "C" cell _crdr(cell id, cell v);
 
-static cell crdr_wrap(cell v, cell idx, bool is_cr, bool is_wr)
-{
+static cell crdr_wrap(cell v, cell idx, bool is_cr, bool is_wr) {
   return _crdr((idx & 0xF) << 3 | (cell)is_cr << 7 | (cell)is_wr << 8, v);
 }
 
@@ -540,29 +478,21 @@ void cr_write(cell cr, cell value) { crdr_wrap(value, cr, true, true); }
 cell dr_read(cell dr) { return crdr_wrap(0, dr, false, false); }
 void dr_write(cell dr, cell value) { crdr_wrap(value, dr, false, true); }
 
-cell xcr_read(cell xcr, cell& value)
-{
+cell xcr_read(cell xcr, cell& value) {
   value = 0;
-  __try
-  {
+  __try {
     value = _xgetbv((ULONG)xcr);
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
 
-cell xcr_write(cell xcr, cell value)
-{
-  __try
-  {
+cell xcr_write(cell xcr, cell value) {
+  __try {
     _xsetbv((ULONG)xcr, value);
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
@@ -570,24 +500,19 @@ cell xcr_write(cell xcr, cell value)
 void invlpg(cell va) { __invlpg((void*)va); }
 void invpcid(cell type, cell descriptor) { _invpcid((unsigned)type, (void*)descriptor); }
 
-cell readpmc(cell pmc, cell& value)
-{
+cell readpmc(cell pmc, cell& value) {
   value = 0;
-  __try
-  {
+  __try {
     value = __readpmc((ULONG)pmc);
     return (cell)(scell)STATUS_SUCCESS;
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)GetExceptionCode();
   }
 }
 
 cell rdtsc() { return __rdtsc(); }
 
-cell rdtscp(cell& pid)
-{
+cell rdtscp(cell& pid) {
   unsigned _pid{};
   const auto res = __rdtscp(&_pid);
   pid = _pid;
@@ -597,40 +522,35 @@ cell rdtscp(cell& pid)
 cell rdrand(cell& v) { return _rdrand64_step(&v); }
 cell rdseed(cell& v) { return _rdseed64_step(&v); }
 
-#include <pshpack1.h>
-struct idtrgdtr
-{
+__pragma(pack(push, 1))
+
+struct idtrgdtr {
   uint16_t limit;
   uintptr_t base;
-};
-#include <poppack.h>
+} __pragma(pack(pop));
 
-void lidt(cell limit, cell base)
-{
+void lidt(cell limit, cell base) {
   idtrgdtr v{};
   v.limit = (uint16_t)limit;
   v.base = base;
   __lidt(&v);
 }
 
-void sidt(cell& limit, cell& base)
-{
+void sidt(cell& limit, cell& base) {
   idtrgdtr v{};
   __sidt(&v);
   limit = v.limit;
   base = v.base;
 }
 
-void lgdt(cell limit, cell base)
-{
+void lgdt(cell limit, cell base) {
   idtrgdtr v;
   v.limit = (uint16_t)limit;
   v.base = base;
   _lgdt(&v);
 }
 
-void sgdt(cell& limit, cell& base)
-{
+void sgdt(cell& limit, cell& base) {
   idtrgdtr v{};
   _sgdt(&v);
   limit = v.limit;

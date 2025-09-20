@@ -44,6 +44,8 @@
 // makes it possible to release a modified version which carries forward this
 // exception.
 
+#define INITGUID
+
 #include <ntddk.h>
 
 #include "ioctl.h"
@@ -51,50 +53,39 @@
 
 static NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp);
 
-static void driver_unload(PDRIVER_OBJECT driver_object)
-{
+static void driver_unload(PDRIVER_OBJECT driver_object) {
   const auto device_object = driver_object->DeviceObject;
 
   if (device_object)
     IoDeleteDevice(device_object);
 }
 
-constexpr GUID k_device_class = { 0x7c619961, 0xf266, 0x4c1b, { 0x84, 0x72, 0x8d, 0x00, 0x47, 0xd6, 0xd4, 0x7a } };
+DEFINE_GUID(k_device_class, 0x7c619961, 0xf266, 0x4c1b, 0x84, 0x72, 0x8d, 0x00, 0x47, 0xd6, 0xd4, 0x7a);
 
-DECLARE_CONST_UNICODE_STRING(
-  NAME_IoCreateDeviceSecure,
-  L"IoCreateDeviceSecure"
-);
+DECLARE_CONST_UNICODE_STRING(NAME_IoCreateDeviceSecure, L"IoCreateDeviceSecure");
 
-_IRQL_requires_max_(PASSIVE_LEVEL)
-_Post_satisfies_(return <= 0)
-NTSTATUS
-IoCreateDeviceSecure(
-  _In_     PDRIVER_OBJECT      DriverObject,
-  _In_     ULONG               DeviceExtensionSize,
-  _In_opt_ PUNICODE_STRING     DeviceName,
-  _In_     DEVICE_TYPE         DeviceType,
-  _In_     ULONG               DeviceCharacteristics,
-  _In_     BOOLEAN             Exclusive,
-  _In_     PCUNICODE_STRING    DefaultSDDLString,
-  _In_opt_ LPCGUID             DeviceClassGuid,
-  _Out_
-  _At_(*DeviceObject,
-    __drv_allocatesMem(Mem)
-    _When_((((_In_function_class_(DRIVER_INITIALIZE)) || (_In_function_class_(DRIVER_DISPATCH)))),
-      __drv_aliasesMem)
-    _On_failure_(_Post_null_))
-  PDEVICE_OBJECT * DeviceObject
-)
-{
+static _IRQL_requires_max_(PASSIVE_LEVEL) _Post_satisfies_(return <= 0) NTSTATUS IoCreateDeviceSecure(
+  _In_ PDRIVER_OBJECT DriverObject,
+  _In_ ULONG DeviceExtensionSize,
+  _In_opt_ PUNICODE_STRING DeviceName,
+  _In_ DEVICE_TYPE DeviceType,
+  _In_ ULONG DeviceCharacteristics,
+  _In_ BOOLEAN Exclusive,
+  _In_ PCUNICODE_STRING DefaultSDDLString,
+  _In_opt_ LPCGUID DeviceClassGuid,
+  _Out_ _At_(*DeviceObject,
+             __drv_allocatesMem(Mem)
+             _When_((((_In_function_class_(DRIVER_INITIALIZE)) || (_In_function_class_(DRIVER_DISPATCH)))),
+               __drv_aliasesMem)
+             _On_failure_(_Post_null_)) PDEVICE_OBJECT* DeviceObject
+) {
   const auto p = (decltype(&IoCreateDeviceSecure))MmGetSystemRoutineAddress((PUNICODE_STRING)&NAME_IoCreateDeviceSecure);
   return p(DriverObject, DeviceExtensionSize, DeviceName, DeviceType, DeviceCharacteristics, Exclusive, DefaultSDDLString, DeviceClassGuid, DeviceObject);
 }
 
 DECLARE_CONST_UNICODE_STRING(SDDL_DEVOBJ_SYS_ALL_ADM_ALL, L"D:P(A;;GA;;;SY)(A;;GA;;;BA)");
 
-EXTERN_C NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING registry_path)
-{
+EXTERN_C NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING registry_path) {
   UNREFERENCED_PARAMETER(registry_path);
 
   UNICODE_STRING device_path = RTL_CONSTANT_STRING(k_device_path);
@@ -111,13 +102,12 @@ EXTERN_C NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING regi
     &device_object
   );
 
-  if (!NT_SUCCESS(status))
-  {
+  if (!NT_SUCCESS(status)) {
     return status;
   }
 
   driver_object->DriverUnload = driver_unload;
-  
+
   driver_object->MajorFunction[IRP_MJ_CREATE] = dispatch_irp;
   driver_object->MajorFunction[IRP_MJ_CLOSE] = dispatch_irp;
   driver_object->MajorFunction[IRP_MJ_DEVICE_CONTROL] = dispatch_irp;
@@ -127,18 +117,16 @@ EXTERN_C NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING regi
   return status;
 }
 
-NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp)
-{
+NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp) {
   UNREFERENCED_PARAMETER(device_object);
-  
+
   irp->IoStatus.Information = 0; // written
 
   const auto irp_stack = IoGetCurrentIrpStackLocation(irp);
-  
+
   auto status = STATUS_NOT_IMPLEMENTED;
-  
-  switch (irp_stack->MajorFunction)
-  {
+
+  switch (irp_stack->MajorFunction) {
   case IRP_MJ_CREATE:
     status = STATUS_SUCCESS;
     break;
@@ -150,15 +138,11 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp)
     break;
 
   case IRP_MJ_DEVICE_CONTROL:
-    switch (irp_stack->Parameters.DeviceIoControl.IoControlCode)
-    {
+    switch (irp_stack->Parameters.DeviceIoControl.IoControlCode) {
     case IOCTL_PIO_LOAD_BINARY:
-      if (irp_stack->FileObject->FsContext)
-      {
+      if (irp_stack->FileObject->FsContext) {
         status = STATUS_ALREADY_INITIALIZED;
-      }
-      else
-      {
+      } else {
         status = vm_load_binary(
           &irp_stack->FileObject->FsContext,
           irp->AssociatedIrp.SystemBuffer,
@@ -168,12 +152,9 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp)
       break;
 
     case IOCTL_PIO_EXECUTE_FN:
-      if (!irp_stack->FileObject->FsContext)
-      {
+      if (!irp_stack->FileObject->FsContext) {
         status = STATUS_INVALID_PARAMETER;
-      }
-      else
-      {
+      } else {
         status = vm_execute_function(
           irp_stack->FileObject->FsContext,
           irp->AssociatedIrp.SystemBuffer,
@@ -191,12 +172,12 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp)
     }
     break;
 
-  default: 
+  default:
     break;
   }
-  
+
   irp->IoStatus.Status = status;
-  
+
   IoCompleteRequest(irp, IO_NO_INCREMENT);
 
   return status;

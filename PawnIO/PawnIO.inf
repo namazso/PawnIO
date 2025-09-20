@@ -50,7 +50,6 @@ Class		= PawnIO_Class
 ClassGuid	= {7c619961-f266-4c1b-8472-8d0047d6d47a}
 Provider	= %ManufacturerName%
 CatalogFile	= PawnIO.cat
-DriverVer	= 09/01/2022,1.0.0.0
 PnpLockdown	= 1
 
 [DestinationDirs]

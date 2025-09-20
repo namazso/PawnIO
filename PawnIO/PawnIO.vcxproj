@@ -163,10 +163,12 @@
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
     </DriverSign>
     <Inf>
-      <SpecifyDriverVerDirectiveVersion>false</SpecifyDriverVerDirectiveVersion>
+      <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
     </Inf>
     <Inf>
-      <SpecifyDriverVerDirectiveDate>false</SpecifyDriverVerDirectiveDate>
+      <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
+      <TimeStamp>2.1.0.0</TimeStamp>
+      <DateStamp>09/01/2025</DateStamp>
     </Inf>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -191,10 +193,12 @@
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
     </DriverSign>
     <Inf>
-      <SpecifyDriverVerDirectiveVersion>false</SpecifyDriverVerDirectiveVersion>
+      <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
     </Inf>
     <Inf>
-      <SpecifyDriverVerDirectiveDate>false</SpecifyDriverVerDirectiveDate>
+      <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
+      <TimeStamp>2.1.0.0</TimeStamp>
+      <DateStamp>09/01/2025</DateStamp>
     </Inf>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseUnrestricted|x64'">
@@ -219,10 +223,12 @@
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
     </DriverSign>
     <Inf>
-      <SpecifyDriverVerDirectiveVersion>false</SpecifyDriverVerDirectiveVersion>
+      <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
     </Inf>
     <Inf>
-      <SpecifyDriverVerDirectiveDate>false</SpecifyDriverVerDirectiveDate>
+      <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
+      <TimeStamp>2.1.0.0</TimeStamp>
+      <DateStamp>09/01/2025</DateStamp>
     </Inf>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -242,10 +248,12 @@
       <AdditionalOptions>/Brepro /nocoffgrpinfo /PDBALTPATH:%_PDB% %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Inf>
-      <SpecifyDriverVerDirectiveVersion>false</SpecifyDriverVerDirectiveVersion>
+      <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
     </Inf>
     <Inf>
-      <SpecifyDriverVerDirectiveDate>false</SpecifyDriverVerDirectiveDate>
+      <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
+      <TimeStamp>2.1.0.0</TimeStamp>
+      <DateStamp>09/01/2025</DateStamp>
     </Inf>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseUnrestricted|ARM64'">
@@ -266,10 +274,12 @@
       <AdditionalOptions>/Brepro /nocoffgrpinfo /PDBALTPATH:%_PDB% %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Inf>
-      <SpecifyDriverVerDirectiveVersion>false</SpecifyDriverVerDirectiveVersion>
+      <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
     </Inf>
     <Inf>
-      <SpecifyDriverVerDirectiveDate>false</SpecifyDriverVerDirectiveDate>
+      <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
+      <TimeStamp>2.1.0.0</TimeStamp>
+      <DateStamp>09/01/2025</DateStamp>
     </Inf>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
@@ -289,10 +299,12 @@
       <AdditionalOptions>/Brepro /nocoffgrpinfo %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Inf>
-      <SpecifyDriverVerDirectiveVersion>false</SpecifyDriverVerDirectiveVersion>
+      <SpecifyDriverVerDirectiveVersion>true</SpecifyDriverVerDirectiveVersion>
     </Inf>
     <Inf>
-      <SpecifyDriverVerDirectiveDate>false</SpecifyDriverVerDirectiveDate>
+      <SpecifyDriverVerDirectiveDate>true</SpecifyDriverVerDirectiveDate>
+      <TimeStamp>2.1.0.0</TimeStamp>
+      <DateStamp>09/01/2025</DateStamp>
     </Inf>
   </ItemDefinitionGroup>
   <ItemGroup>

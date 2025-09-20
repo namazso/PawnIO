@@ -53,9 +53,9 @@
 
 static std::atomic<LONG> g_refs = -1;
 
-NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp);
+static NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp);
 
-void driver_unload(PDRIVER_OBJECT driver_object)
+static void driver_unload(PDRIVER_OBJECT driver_object)
 {
   const auto device_object = driver_object->DeviceObject;
   UNICODE_STRING device_dospath = RTL_CONSTANT_STRING(k_device_dospath);
@@ -66,7 +66,7 @@ void driver_unload(PDRIVER_OBJECT driver_object)
     IoDeleteDevice(device_object);
 }
 
-const GUID k_device_class = { 0x7c619961, 0xf266, 0x4c1b, { 0x84, 0x72, 0x8d, 0x00, 0x47, 0xd6, 0xd4, 0x7a } };
+constexpr GUID k_device_class = { 0x7c619961, 0xf266, 0x4c1b, { 0x84, 0x72, 0x8d, 0x00, 0x47, 0xd6, 0xd4, 0x7a } };
 
 EXTERN_C NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING registry_path)
 {

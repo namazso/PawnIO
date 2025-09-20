@@ -91,9 +91,9 @@ void interrupts_disable() { _disable(); }
 void interrupts_enable() { _enable(); }
 
 template <typename T>
-cell physical_read(cell pa, cell& v)
+static cell physical_read(cell pa, cell& v)
 {
-  PHYSICAL_ADDRESS phys{};
+  PHYSICAL_ADDRESS phys;
   phys.QuadPart = (LONGLONG)pa;
   const auto va = MmGetVirtualForPhysical(phys);
   if (!va)
@@ -110,9 +110,9 @@ cell physical_read(cell pa, cell& v)
 }
 
 template <typename T>
-cell physical_write(cell pa, cell v)
+static cell physical_write(cell pa, cell v)
 {
-  PHYSICAL_ADDRESS phys{};
+  PHYSICAL_ADDRESS phys;
   phys.QuadPart = (LONGLONG)pa;
   const auto va = MmGetVirtualForPhysical(phys);
   if (!va)
@@ -141,7 +141,7 @@ cell physical_write_qword(cell pa, cell value) { return physical_write<ULONG64>(
 cell io_space_map(cell pa, cell size)
 {
   PHYSICAL_ADDRESS physical;
-  physical.QuadPart = pa;
+  physical.QuadPart = (scell)pa;
   return (cell)MmMapIoSpace(physical, size, MmNonCached);
 }
 
@@ -151,7 +151,7 @@ void io_space_unmap(cell va, cell size)
 }
 
 template <typename T>
-cell virtual_read(cell va, cell& v)
+static cell virtual_read(cell va, cell& v)
 {
   __try
   {
@@ -165,7 +165,7 @@ cell virtual_read(cell va, cell& v)
 }
 
 template <typename T>
-cell virtual_write(cell va, cell v)
+static cell virtual_write(cell va, cell v)
 {
   __try
   {
@@ -179,7 +179,7 @@ cell virtual_write(cell va, cell v)
 }
 
 template <typename T>
-cell virtual_cmpxchg(cell va, cell exchange, cell comparand)
+static cell virtual_cmpxchg(cell va, cell exchange, cell comparand)
 {
   __try
   {
@@ -237,7 +237,7 @@ void virtual_free(cell va)
 #pragma warning(push)
 #pragma warning(disable: 4996)
 
-NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length)
+static NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length)
 {
   if (length == 0)
     return STATUS_INVALID_PARAMETER;
@@ -283,7 +283,7 @@ NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULONG offs
   return STATUS_SUCCESS;
 }
 
-NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length)
+static NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length)
 {
   if (length == 0)
     return STATUS_INVALID_PARAMETER;
@@ -326,7 +326,7 @@ NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, ULONG off
 #pragma warning(pop)
 
 template <typename T>
-cell pci_config_read(cell bus, cell device, cell function, cell offset, cell& value)
+static cell pci_config_read(cell bus, cell device, cell function, cell offset, cell& value)
 {
   T t{};
   const auto status = (cell)(scell)pci_config_read_raw((ULONG)bus, (ULONG)device, (ULONG)function, (ULONG)offset, &t, sizeof(t));
@@ -335,7 +335,7 @@ cell pci_config_read(cell bus, cell device, cell function, cell offset, cell& va
 }
 
 template <typename T>
-cell pci_config_write(cell bus, cell device, cell function, cell offset, cell value)
+static cell pci_config_write(cell bus, cell device, cell function, cell offset, cell value)
 {
   T t{(T)value};
   return (cell)(scell)pci_config_write_raw((ULONG)bus, (ULONG)device, (ULONG)function, (ULONG)offset, &t, sizeof(t));
@@ -398,7 +398,7 @@ cell invoke(
 
 cell microsleep(cell us)
 {
-  LARGE_INTEGER li{};
+  LARGE_INTEGER li;
   li.QuadPart = (scell)us * -10;
   return (cell)(scell)KeDelayExecutionThread(KernelMode, FALSE, &li);
 }
@@ -458,7 +458,7 @@ cell query_dell_smm(std::array<cell, 6> in, std::array<cell, 6>& out)
   const auto result = _dell(regs);
   for (auto i = 0; i < 6; ++i)
     out[i] = regs[i];
-  return (result != 0 || (regs[0] & 0xFFFF) == 0xFFFF || regs[0] == (ULONG)in[0]) ? false : true;
+  return (result == 0 && (regs[0] & 0xFFFF) != 0xFFFF && regs[0] != (ULONG)in[0]);
 }
 
 void io_out_byte(cell port, cell value) { __outbyte((USHORT)port, (UCHAR)value); }
@@ -515,7 +515,7 @@ void cpuid(cell leaf, cell subleaf, std::array<cell, 4>& out)
 
 extern "C" cell _crdr(cell id, cell v);
 
-cell crdr_wrap(cell v, cell idx, bool is_cr, bool is_wr)
+static cell crdr_wrap(cell v, cell idx, bool is_cr, bool is_wr)
 {
   return _crdr((idx & 0xF) << 3 | (cell)is_cr << 7 | (cell)is_wr << 8, v);
 }
@@ -609,7 +609,7 @@ void sidt(cell& limit, cell& base)
 
 void lgdt(cell limit, cell base)
 {
-  idtrgdtr v{};
+  idtrgdtr v;
   v.limit = (uint16_t)limit;
   v.base = base;
   _lgdt(&v);

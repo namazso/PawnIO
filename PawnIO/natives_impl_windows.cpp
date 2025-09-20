@@ -240,7 +240,7 @@ void virtual_free(cell va)
 NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length)
 {
   if (length == 0)
-    return (cell)(scell)STATUS_INVALID_PARAMETER;
+    return STATUS_INVALID_PARAMETER;
 
   PCI_SLOT_NUMBER slot{};
   slot.u.bits.DeviceNumber = device;
@@ -257,10 +257,10 @@ NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULONG offs
   );
 
   if (result == 0)
-    return (cell)(scell)STATUS_NOT_FOUND;
+    return STATUS_NOT_FOUND;
 
   if (result == 2 && vendor_id == PCI_INVALID_VENDORID)
-    return (cell)(scell)STATUS_DEVICE_DOES_NOT_EXIST;
+    return STATUS_DEVICE_DOES_NOT_EXIST;
 
   result = HalGetBusDataByOffset(
     PCIConfiguration,
@@ -272,21 +272,21 @@ NTSTATUS pci_config_read_raw(ULONG bus, ULONG device, ULONG function, ULONG offs
   );
 
   if (result == 0)
-    return (cell)(scell)STATUS_NOT_FOUND;
+    return STATUS_NOT_FOUND;
 
   if (result == 2 && length != 2)
-    return (cell)(scell)STATUS_DEVICE_DOES_NOT_EXIST;
+    return STATUS_DEVICE_DOES_NOT_EXIST;
 
   if (result != length)
-    return (cell)(scell)STATUS_UNSUCCESSFUL;
+    return STATUS_UNSUCCESSFUL;
 
-  return (cell)(scell)STATUS_SUCCESS;
+  return STATUS_SUCCESS;
 }
 
 NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, ULONG offset, PVOID buffer, ULONG length)
 {
   if (length == 0)
-    return (cell)(scell)STATUS_INVALID_PARAMETER;
+    return STATUS_INVALID_PARAMETER;
 
   PCI_SLOT_NUMBER slot{};
   slot.u.bits.DeviceNumber = device;
@@ -303,10 +303,10 @@ NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, ULONG off
   );
 
   if (result == 0)
-    return (cell)(scell)STATUS_NOT_FOUND;
+    return STATUS_NOT_FOUND;
 
   if (result == 2 && vendor_id == PCI_INVALID_VENDORID)
-    return (cell)(scell)STATUS_DEVICE_DOES_NOT_EXIST;
+    return STATUS_DEVICE_DOES_NOT_EXIST;
 
   result = HalSetBusDataByOffset(
     PCIConfiguration,
@@ -318,9 +318,9 @@ NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, ULONG off
   );
 
   if (result != length)
-    return (cell)(scell)STATUS_UNSUCCESSFUL;
+    return STATUS_UNSUCCESSFUL;
 
-  return (cell)(scell)STATUS_SUCCESS;
+  return STATUS_SUCCESS;
 }
 
 #pragma warning(pop)
@@ -329,7 +329,7 @@ template <typename T>
 cell pci_config_read(cell bus, cell device, cell function, cell offset, cell& value)
 {
   T t{};
-  const auto status = pci_config_read_raw((ULONG)bus, (ULONG)device, (ULONG)function, (ULONG)offset, &t, sizeof(t));
+  const auto status = (cell)(scell)pci_config_read_raw((ULONG)bus, (ULONG)device, (ULONG)function, (ULONG)offset, &t, sizeof(t));
   value = t;
   return status;
 }
@@ -338,7 +338,7 @@ template <typename T>
 cell pci_config_write(cell bus, cell device, cell function, cell offset, cell value)
 {
   T t{(T)value};
-  return pci_config_write_raw((ULONG)bus, (ULONG)device, (ULONG)function, (ULONG)offset, &t, sizeof(t));
+  return (cell)(scell)pci_config_write_raw((ULONG)bus, (ULONG)device, (ULONG)function, (ULONG)offset, &t, sizeof(t));
 }
 
 cell pci_config_read_byte(cell bus, cell device, cell function, cell offset, cell& value) { return pci_config_read<UCHAR>(bus, device, function, offset, value); }

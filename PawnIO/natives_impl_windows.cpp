@@ -403,6 +403,12 @@ cell microsleep(cell us)
   return (cell)(scell)KeDelayExecutionThread(KernelMode, FALSE, &li);
 }
 
+cell microsleep2(cell us)
+{
+	KeStallExecutionProcessor((ULONG)us);
+    return (cell)(scell)STATUS_SUCCESS;
+}
+
 #if defined(ARCH_A64)
 
 unsigned arm_mrs(unsigned instruction);

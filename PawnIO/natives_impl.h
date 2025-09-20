@@ -131,6 +131,7 @@ cell invoke(
 );
 
 cell microsleep(cell us);
+cell microsleep2(cell us);
 
 #if defined(ARCH_A64)
 

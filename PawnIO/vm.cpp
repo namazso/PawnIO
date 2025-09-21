@@ -54,7 +54,7 @@
 
 #include "vm.h"
 
-using amx64 = amx::amx<uint64_t, amx::memory_manager_neumann<amx::memory_backing_paged_buffers<5>>>;
+using amx64 = amx::amx<uint64_t, amx::memory_manager_harvard<amx::memory_backing_contignous_buffer, amx::memory_backing_paged_buffers<5>>>;
 using amx64_loader = amx::loader<amx64>;
 
 static_assert(std::is_same_v<cell, amx64::cell>, "cell mismatch");

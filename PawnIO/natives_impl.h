@@ -45,7 +45,6 @@
 // exception.
 
 #pragma once
-#include <array>
 
 #include "arch_detect.h"
 

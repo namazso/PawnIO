@@ -44,9 +44,7 @@
 // makes it possible to release a modified version which carries forward this
 // exception.
 
-#define INITGUID
-
-#include <ntddk.h>
+#include "stdafx.h"
 
 #include "ioctl.h"
 #include "vm.h"

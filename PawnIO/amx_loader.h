@@ -46,7 +46,6 @@
 
 #pragma once
 #include "../PawnPP/amx.h"
-#include <algorithm>
 
 namespace amx {
   enum class loader_error {

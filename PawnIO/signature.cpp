@@ -44,10 +44,7 @@
 // makes it possible to release a modified version which carries forward this
 // exception.
 
-#include <ntddk.h>
-#include <bcrypt.h>
-#include <cstdint>
-#include <malloc.h>
+#include "stdafx.h"
 
 #define SHA256_LEN (32)
 

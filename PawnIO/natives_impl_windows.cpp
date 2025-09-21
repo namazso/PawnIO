@@ -44,8 +44,8 @@
 // makes it possible to release a modified version which carries forward this
 // exception.
 
-#include <intrin.h>
-#include <ntddk.h>
+#include "stdafx.h"
+
 #include "natives_impl.h"
 
 #pragma warning(disable: 4309)

@@ -44,10 +44,8 @@
 // makes it possible to release a modified version which carries forward this
 // exception.
 
-#include <ntddk.h>
-#include <cstdint>
-#include <algorithm>
-#include <tuple>
+#include "stdafx.h"
+
 #define LITTLE_ENDIAN
 #include "amx_loader.h"
 #include "natives_impl.h"
@@ -562,7 +560,7 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
   const auto loader = new(&my_ctx->loader_storage) amx64_loader();
   my_ctx->loader = loader;
 
-  constexpr amx64_loader::callbacks_arg callbacks
+  constexpr static amx64_loader::callbacks_arg callbacks
   {
     NATIVES,
     std::size(NATIVES),

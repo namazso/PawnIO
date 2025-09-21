@@ -32,6 +32,9 @@
       <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="signature.cpp" />
+    <ClCompile Include="stdafx.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="vm.cpp" />
     <ClCompile Include="natives_impl_windows.cpp" />
   </ItemGroup>
@@ -45,6 +48,7 @@
     <ClInclude Include="arch_detect.h" />
     <ClInclude Include="ioctl.h" />
     <ClInclude Include="natives_impl.h" />
+    <ClInclude Include="stdafx.h" />
     <ClInclude Include="version.h" />
     <ClInclude Include="vm.h" />
   </ItemGroup>
@@ -91,6 +95,7 @@
       <AdditionalOptions>/kernel /utf-8 /INTEGRITYCHECK /d1nodatetime /Brepro %(AdditionalOptions)</AdditionalOptions>
       <GuardEHContMetadata>true</GuardEHContMetadata>
       <ControlFlowGuard>false</ControlFlowGuard>
+      <PrecompiledHeader>Use</PrecompiledHeader>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)ksecdd.lib;%(AdditionalDependencies)</AdditionalDependencies>

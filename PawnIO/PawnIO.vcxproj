@@ -53,6 +53,7 @@
     <ClInclude Include="public.h" />
     <ClInclude Include="signature.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="uninitialized_storage.h" />
     <ClInclude Include="version.h" />
     <ClInclude Include="vm.h" />
   </ItemGroup>

@@ -47,6 +47,8 @@
     <ClInclude Include="amx_loader.h" />
     <ClInclude Include="arch_detect.h" />
     <ClInclude Include="ioctl.h" />
+    <ClInclude Include="kallocator.h" />
+    <ClInclude Include="klist.h" />
     <ClInclude Include="natives_impl.h" />
     <ClInclude Include="public.h" />
     <ClInclude Include="signature.h" />

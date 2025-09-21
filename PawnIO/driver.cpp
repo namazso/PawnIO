@@ -48,6 +48,12 @@
 
 #include "ioctl.h"
 #include "vm.h"
+#include "public.h"
+#include "version.h"
+
+ULONG pawnio_version() {
+  return (PAWNIO_MAJOR << 16) | (PAWNIO_MINOR << 8) | PAWNIO_PATCH;
+}
 
 static NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp);
 
@@ -172,6 +178,15 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp) {
           irp->IoStatus.Information = irp_stack->Parameters.DeviceIoControl.OutputBufferLength;
       }
       break;
+
+    case IOCTL_PIO_VERSION:
+      if (irp_stack->Parameters.DeviceIoControl.OutputBufferLength != sizeof(ULONG)) {
+        status = STATUS_INVALID_PARAMETER;
+      } else {
+        *(ULONG*)irp->AssociatedIrp.SystemBuffer = pawnio_version();
+        irp->IoStatus.Information = sizeof(ULONG);
+        status = STATUS_SUCCESS;
+      }
 
     default:
       break;

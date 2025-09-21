@@ -76,18 +76,19 @@ _dell PROC FRAME
     mov [r8+16], esi
     mov [r8+20], edi
 
+    setb al
+    movzx eax, al
+
     pop rdi
     pop rsi
     pop rbx
-
-    setb al
-    movzx eax, al
 
     ret
 _dell ENDP
 
 _crdr PROC
     lea rax, begin
+    and rcx, 1f8h
     add rax, rcx
     jmp rax
 ALIGN 8

@@ -680,7 +680,7 @@ const static amx64_loader::native_arg NATIVES[] =
 #undef DEFINE_NATIVE
 };
 
-void __cdecl operator delete(void*, size_t) {
+void __CRTDECL operator delete(void*, size_t) noexcept {
   __debugbreak();
 }
 

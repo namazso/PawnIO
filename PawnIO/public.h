@@ -48,34 +48,92 @@
 
 #define PAWNIO_PUBLICAPI EXTERN_C __declspec(dllexport)
 
+/// Returns the current version of PawnIO.
+/// 
+/// @return Version in ((major << 16) | (minor << 8) | patch) format.
+PAWNIO_PUBLICAPI ULONG pawnio_version();
+
+/// Structure that holds a trusted public key and its length.
 struct trusted_pubkey {
+  /// Pointer to the raw public key data.
   PCUCHAR data;
+  /// Length of the public key data in bytes.
   ULONG_PTR len;
 };
 
-PAWNIO_PUBLICAPI ULONG pawnio_version();
+/// Returns an array of trusted public keys.
+/// 
+/// @return Pointer to an array of trusted_pubkey structures. The array is
+///         terminated by an entry with NULL data.
 PAWNIO_PUBLICAPI const struct trusted_pubkey* pawnio_trusted_keys();
 
+/// Callback function type that gets called when a VM is created.
+/// 
+/// @param ctx Context pointer to the created VM.
+/// @return Status code indicating whether to block or allow the creation.
 typedef NTSTATUS pawnio_vm_callback_created(PVOID ctx);
 typedef pawnio_vm_callback_created* ppawnio_vm_callback_created;
 
+/// Registers a callback that will be called when a VM is created.
+/// 
+/// @param callback Pointer to the callback function.
+/// @return Cookie that can be used to unregister the callback.
 PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_created(ppawnio_vm_callback_created callback);
+
+/// Unregisters a previously registered VM creation callback.
+/// 
+/// @param cookie returned by pawnio_register_vm_callback_created.
 PAWNIO_PUBLICAPI void pawnio_unregister_vm_callback_created(PVOID cookie);
 
+/// Callback function type that gets called before a VM function is executed.
+/// 
+/// @param ctx Context pointer to the VM.
+/// @param cip Code instruction pointer/function address to be executed.
+/// @return Status code indicating whether to block or allow the execution.
 typedef NTSTATUS pawnio_vm_callback_precall(PVOID ctx, UINT_PTR cip);
 typedef pawnio_vm_callback_precall* ppawnio_vm_callback_precall;
 
+/// Registers a callback that will be called before a VM function is executed.
+/// 
+/// @param callback Pointer to the callback function.
+/// @return Cookie that can be used to unregister the callback.
 PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_precall(ppawnio_vm_callback_precall callback);
+
+/// Unregisters a previously registered pre-call callback.
+/// 
+/// @param cookie Cookie returned by pawnio_register_vm_callback_precall.
 PAWNIO_PUBLICAPI void pawnio_unregister_vm_callback_precall(PVOID cookie);
 
+/// Callback function type that gets called after a VM function is executed.
+/// 
+/// @param ctx Context pointer to the VM.
 typedef void pawnio_vm_callback_postcall(PVOID ctx);
 typedef pawnio_vm_callback_postcall* ppawnio_vm_callback_postcall;
 
+/// Registers a callback that will be called after a VM function is executed.
+/// 
+/// @param callback Pointer to the callback function.
+/// @return Cookie that can be used to unregister the callback.
 PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_postcall(ppawnio_vm_callback_postcall callback);
+
+/// Unregisters a previously registered post-call callback.
+/// 
+/// @param cookie Cookie returned by pawnio_register_vm_callback_postcall.
 PAWNIO_PUBLICAPI void pawnio_unregister_vm_callback_postcall(PVOID cookie);
 
+/// Callback function type that gets called when a VM is destroyed.
+/// 
+/// @param ctx Context pointer to the VM being destroyed.
 typedef void pawnio_vm_callback_destroyed(PVOID ctx);
 typedef pawnio_vm_callback_destroyed* ppawnio_vm_callback_destroyed;
 
+/// Registers a callback that will be called when a VM is destroyed.
+/// 
+/// @param callback Pointer to the callback function.
+/// @return Cookie that can be used to unregister the callback.
 PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_destroyed(ppawnio_vm_callback_destroyed callback);
+
+/// Unregisters a previously registered VM destruction callback.
+/// 
+/// @param cookie Cookie returned by pawnio_register_vm_callback_destroyed.
 PAWNIO_PUBLICAPI void pawnio_unregister_vm_callback_destroyed(PVOID cookie);

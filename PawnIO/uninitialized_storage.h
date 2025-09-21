@@ -53,11 +53,11 @@ private:
 
 public:
   // Default constructor
-  constexpr uninitialized_storage() noexcept = default;
+  FORCEINLINE constexpr uninitialized_storage() noexcept = default;
 
   // Forwarding constructor - only for trivially copyable types
   template <typename... Args>
-  constexpr explicit uninitialized_storage(Args&&... args)
+  FORCEINLINE constexpr explicit uninitialized_storage(Args&&... args)
     noexcept(std::is_nothrow_constructible_v<T, Args...>)
     requires(std::is_constructible_v<T, Args...> && std::is_trivially_copyable_v<T>) {
     T temp(std::forward<Args>(args)...);
@@ -65,7 +65,7 @@ public:
   }
 
   // Destructor
-  ~uninitialized_storage() noexcept = default;
+  FORCEINLINE ~uninitialized_storage() noexcept = default;
 
   // Base declarations (deleted by default)
   uninitialized_storage(const uninitialized_storage&) = delete;
@@ -75,12 +75,12 @@ public:
 
   // Conditionally enable copy constructor for trivially copyable types
   template <typename U = T>
-  constexpr uninitialized_storage(const uninitialized_storage& other) noexcept
+  FORCEINLINE constexpr uninitialized_storage(const uninitialized_storage& other) noexcept
     requires (std::is_trivially_copyable_v<U>) : storage(other.storage) {}
 
   // Conditionally enable copy assignment for trivially copyable types
   template <typename U = T>
-  constexpr uninitialized_storage& operator=(const uninitialized_storage& other) noexcept
+  FORCEINLINE constexpr uninitialized_storage& operator=(const uninitialized_storage& other) noexcept
     requires (std::is_trivially_copyable_v<U>) {
     storage = other.storage;
     return *this;
@@ -88,12 +88,12 @@ public:
 
   // Conditionally enable move constructor for trivially movable types
   template <typename U = T>
-  constexpr uninitialized_storage(uninitialized_storage&& other) noexcept
+  FORCEINLINE constexpr uninitialized_storage(uninitialized_storage&& other) noexcept
     requires (std::is_trivially_move_constructible_v<U>) : storage(std::move(other.storage)) {}
 
   // Conditionally enable move assignment for trivially movable types
   template <typename U = T>
-  constexpr uninitialized_storage& operator=(uninitialized_storage&& other) noexcept
+  FORCEINLINE constexpr uninitialized_storage& operator=(uninitialized_storage&& other) noexcept
     requires (std::is_trivially_move_assignable_v<U>) {
     storage = std::move(other.storage);
     return *this;
@@ -101,34 +101,34 @@ public:
 
   // Construct the object in-place with any arguments
   template <typename... Args>
-  void construct(Args&&... args)
+  FORCEINLINE void construct(Args&&... args)
     noexcept(std::is_nothrow_constructible_v<T, Args...>)
     requires(std::is_constructible_v<T, Args...>) {
     new (address()) T(std::forward<Args>(args)...);
   }
 
   // Destroy the object
-  void destroy() noexcept(std::is_nothrow_destructible_v<T>) {
+  FORCEINLINE void destroy() noexcept(std::is_nothrow_destructible_v<T>) {
     if constexpr (!std::is_trivially_destructible_v<T>) {
       get().~T();
     }
   }
 
   // Access the object
-  T& get() noexcept {
+  FORCEINLINE T& get() noexcept {
     return *std::launder(reinterpret_cast<T*>(storage.data()));
   }
 
-  const T& get() const noexcept {
+  FORCEINLINE const T& get() const noexcept {
     return *std::launder(reinterpret_cast<const T*>(storage.data()));
   }
 
   // Access the object's address
-  T* address() noexcept {
+  FORCEINLINE T* address() noexcept {
     return std::launder(reinterpret_cast<T*>(storage.data()));
   }
 
-  const T* address() const noexcept {
+  FORCEINLINE const T* address() const noexcept {
     return std::launder(reinterpret_cast<const T*>(storage.data()));
   }
 };

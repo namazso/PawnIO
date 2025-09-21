@@ -68,9 +68,9 @@ class arg_wrapper<cell&, Index> {
   cell* p{};
 
 public:
-  arg_wrapper() = default;
+  FORCEINLINE arg_wrapper() = default;
 
-  amx::error init(amx64* amx, cell, cell argv) {
+  FORCEINLINE amx::error init(amx64* amx, cell, cell argv) {
     p = amx->data_v2p(argv + Index * sizeof(cell));
     if (!p)
       return amx::error::access_violation;
@@ -82,7 +82,7 @@ public:
 
   cell value{};
 
-  ~arg_wrapper() {
+  FORCEINLINE ~arg_wrapper() {
     if (p)
       *p = value;
   }
@@ -91,9 +91,9 @@ public:
 template <size_t Index>
 class arg_wrapper<cell, Index> {
 public:
-  arg_wrapper() = default;
+  FORCEINLINE arg_wrapper() = default;
 
-  amx::error init(amx64* amx, cell, cell argv) {
+  FORCEINLINE amx::error init(amx64* amx, cell, cell argv) {
     const auto p = amx->data_v2p(argv + Index * sizeof(cell));
     if (!p)
       return amx::error::access_violation;
@@ -102,7 +102,7 @@ public:
   }
 
   cell value{};
-  ~arg_wrapper() = default;
+  FORCEINLINE ~arg_wrapper() = default;
 };
 
 template <size_t N, size_t Index>
@@ -110,9 +110,9 @@ class arg_wrapper<std::array<cell, N>&, Index> {
   std::array<cell*, N> ps{};
 
 public:
-  arg_wrapper() = default;
+  FORCEINLINE arg_wrapper() = default;
 
-  amx::error init(amx64* amx, cell, cell argv) {
+  FORCEINLINE amx::error init(amx64* amx, cell, cell argv) {
     const auto p = amx->data_v2p(argv + Index * sizeof(cell));
     if (!p)
       return amx::error::access_violation;
@@ -131,7 +131,7 @@ public:
 
   std::array<cell, N> value{};
 
-  ~arg_wrapper() {
+  FORCEINLINE ~arg_wrapper() {
     for (size_t i = 0; i < N; ++i)
       *(ps[i]) = value[i];
   }
@@ -140,9 +140,9 @@ public:
 template <size_t N, size_t Index>
 class arg_wrapper<std::array<cell, N>, Index> {
 public:
-  arg_wrapper() = default;
+  FORCEINLINE arg_wrapper() = default;
 
-  amx::error init(amx64* amx, cell, cell argv) {
+  FORCEINLINE amx::error init(amx64* amx, cell, cell argv) {
     const auto p = amx->data_v2p(argv + Index * sizeof(cell));
     if (!p)
       return amx::error::access_violation;
@@ -157,7 +157,7 @@ public:
   }
 
   std::array<cell, N> value{};
-  ~arg_wrapper() = default;
+  FORCEINLINE ~arg_wrapper() = default;
 };
 
 // Implement wrapped tuple type.
@@ -175,7 +175,7 @@ namespace impl {
   using wtuple_t = typename wtuple<std::tuple<Tx...>, std::make_index_sequence<sizeof...(Tx)>>::type;
 
   template <size_t N, typename T>
-  __forceinline amx::error init_wtuple(amx64* amx, cell argc, cell argv, T& tuple) {
+  FORCEINLINE amx::error init_wtuple(amx64* amx, cell argc, cell argv, T& tuple) {
     if constexpr (N == std::tuple_size_v<T>) {
       return {};
     } else {
@@ -188,7 +188,7 @@ namespace impl {
   }
 
   template <typename... Tx>
-  __forceinline std::pair<wtuple_t<Tx...>, amx::error> init_wtuple(amx64* amx, cell argc, cell argv) {
+  FORCEINLINE std::pair<wtuple_t<Tx...>, amx::error> init_wtuple(amx64* amx, cell argc, cell argv) {
     std::pair<wtuple_t<Tx...>, amx::error> result = {};
     result.second = init_wtuple<0>(amx, argc, argv, result.first);
     return result;
@@ -196,7 +196,7 @@ namespace impl {
 };
 
 template <auto* Fn, typename Ret, typename... Args>
-__forceinline amx::error native_callback_wrapper2(
+FORCEINLINE amx::error native_callback_wrapper2(
   amx64* amx,
   amx64_loader* loader,
   void* user,

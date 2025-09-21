@@ -71,7 +71,7 @@ DEFINE_GUID(k_device_class, 0x7c619961, 0xf266, 0x4c1b, 0x84, 0x72, 0x8d, 0x00, 
 
 DECLARE_CONST_UNICODE_STRING(NAME_IoCreateDeviceSecure, L"IoCreateDeviceSecure");
 
-static _IRQL_requires_max_(PASSIVE_LEVEL) _Post_satisfies_(return <= 0) NTSTATUS IoCreateDeviceSecure(
+FORCEINLINE static _IRQL_requires_max_(PASSIVE_LEVEL) _Post_satisfies_(return <= 0) NTSTATUS IoCreateDeviceSecure(
   _In_ PDRIVER_OBJECT DriverObject,
   _In_ ULONG DeviceExtensionSize,
   _In_opt_ PUNICODE_STRING DeviceName,

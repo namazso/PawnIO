@@ -55,7 +55,7 @@ struct klist_node {
 };
 
 template <typename T>
-klist_node<T>* get_node_from_entry(PLIST_ENTRY entry) {
+FORCEINLINE klist_node<T>* get_node_from_entry(PLIST_ENTRY entry) {
   return CONTAINING_RECORD(entry, klist_node<T>, entry);
 }
 
@@ -63,10 +63,10 @@ template <typename List>
 class klist_iterator {
 public:
   using iterator_category = std::bidirectional_iterator_tag;
-  using value_type = typename List::value_type;
-  using difference_type = typename List::difference_type;
-  using pointer = typename List::pointer;
-  using reference = typename List::reference;
+  using value_type = List::value_type;
+  using difference_type = List::difference_type;
+  using pointer = List::pointer;
+  using reference = List::reference;
 
   friend List;
 
@@ -76,57 +76,60 @@ private:
   List* _list;
   PLIST_ENTRY _entry;
 
-  klist_iterator() : _list(nullptr), _entry(nullptr) {}
-  klist_iterator(List* list, PLIST_ENTRY entry) : _list(list), _entry(entry) {}
+  FORCEINLINE klist_iterator()
+      : _list(nullptr), _entry(nullptr) {}
+
+  FORCEINLINE klist_iterator(List* list, PLIST_ENTRY entry)
+      : _list(list), _entry(entry) {}
 
 public:
-  operator klist_iterator<const List>() const {
+  FORCEINLINE operator klist_iterator<const List>() const {
     return klist_iterator<const List>(_list, _entry);
   }
 
-  [[nodiscard]] PLIST_ENTRY as_entry() const { return _entry; }
+  FORCEINLINE [[nodiscard]] PLIST_ENTRY as_entry() const { return _entry; }
 
-  reference operator*() const {
+  FORCEINLINE reference operator*() const {
     if (_entry == _list->end().as_entry())
       __fastfail(FAST_FAIL_RANGE_CHECK_FAILURE);
     
     return get_node_from_entry<value_type>(_entry)->value;
   }
 
-  pointer operator->() const {
+  FORCEINLINE pointer operator->() const {
     if (_entry == _list->end().as_entry())
       __fastfail(FAST_FAIL_RANGE_CHECK_FAILURE);
 
     return &get_node_from_entry<value_type>(_entry)->value;
   }
 
-  klist_iterator& operator++() {
+  FORCEINLINE klist_iterator& operator++() {
     _entry = _entry->Flink;
     return *this;
   }
 
-  klist_iterator operator++(int) {
+  FORCEINLINE klist_iterator operator++(int) {
     klist_iterator tmp = *this;
     _entry = _entry->Flink;
     return tmp;
   }
 
-  klist_iterator& operator--() {
+  FORCEINLINE klist_iterator& operator--() {
     _entry = _entry->Blink;
     return *this;
   }
 
-  klist_iterator operator--(int) {
+  FORCEINLINE klist_iterator operator--(int) {
     klist_iterator tmp = *this;
     _entry = _entry->Blink;
     return tmp;
   }
 
-  [[nodiscard]] bool operator==(const klist_iterator& other) const {
+  FORCEINLINE [[nodiscard]] bool operator==(const klist_iterator& other) const {
     return _entry == other._entry;
   }
 
-  [[nodiscard]] bool operator!=(const klist_iterator& other) const {
+  FORCEINLINE [[nodiscard]] bool operator!=(const klist_iterator& other) const {
     return _entry != other._entry;
   }
 };
@@ -140,8 +143,8 @@ public:
   using difference_type = ptrdiff_t;
   using reference = value_type&;
   using const_reference = const value_type&;
-  using pointer = typename std::allocator_traits<Allocator>::pointer;
-  using const_pointer = typename std::allocator_traits<Allocator>::const_pointer;
+  using pointer = std::allocator_traits<Allocator>::pointer;
+  using const_pointer = std::allocator_traits<Allocator>::const_pointer;
   using iterator = klist_iterator<klist<T, Allocator>>;
   using const_iterator = klist_iterator<const klist<T, Allocator>>;
   using reverse_iterator = std::reverse_iterator<iterator>;
@@ -155,11 +158,12 @@ private:
   Allocator _alloc{};
 
 public:
-  constexpr klist() noexcept = default;
+  FORCEINLINE constexpr klist() noexcept = default;
 
-  klist(const klist& other) = delete;
+  FORCEINLINE klist(const klist& other) = delete;
 
-  klist(klist&& other) noexcept : _alloc(std::move(other._alloc)) {
+  FORCEINLINE klist(klist&& other) noexcept
+      : _alloc(std::move(other._alloc)) {
     InitializeListHead(&_head);
     if (!other.empty()) {
       _head = other._head;
@@ -169,9 +173,9 @@ public:
     }
   }
 
-  klist& operator=(const klist& other) = delete;
+  FORCEINLINE klist& operator=(const klist& other) = delete;
 
-  klist& operator=(klist&& other) noexcept {
+  FORCEINLINE klist& operator=(klist&& other) noexcept {
     if (this != &other) {
       clear();
       if constexpr (std::allocator_traits<Allocator>::propagate_on_container_move_assignment::value) {
@@ -187,58 +191,58 @@ public:
     return *this;
   }
 
-  ~klist() {
+  FORCEINLINE ~klist() {
     clear();
   }
 
-  [[nodiscard]] iterator iter_from_entry(PLIST_ENTRY entry) { return iterator(this, entry); }
-  [[nodiscard]] const_iterator iter_from_entry(PLIST_ENTRY entry) const { return const_iterator(this, entry); }
-  [[nodiscard]] const_iterator citer_from_entry(PLIST_ENTRY entry) const { return const_iterator(this, entry); }
+  FORCEINLINE [[nodiscard]] iterator iter_from_entry(PLIST_ENTRY entry) { return iterator(this, entry); }
+  FORCEINLINE [[nodiscard]] const_iterator iter_from_entry(PLIST_ENTRY entry) const { return const_iterator(this, entry); }
+  FORCEINLINE [[nodiscard]] const_iterator citer_from_entry(PLIST_ENTRY entry) const { return const_iterator(this, entry); }
   
-  [[nodiscard]] iterator begin() { return iterator(this, _head.Flink); }
-  [[nodiscard]] const_iterator begin() const { return const_iterator(this, _head.Flink); }
-  [[nodiscard]] const_iterator cbegin() const { return const_iterator(this, _head.Flink); }
+  FORCEINLINE [[nodiscard]] iterator begin() { return iterator(this, _head.Flink); }
+  FORCEINLINE [[nodiscard]] const_iterator begin() const { return const_iterator(this, _head.Flink); }
+  FORCEINLINE [[nodiscard]] const_iterator cbegin() const { return const_iterator(this, _head.Flink); }
   
-  [[nodiscard]] iterator end() { return iterator(this, &_head); }
-  [[nodiscard]] const_iterator end() const { return const_iterator(this, &_head); }
-  [[nodiscard]] const_iterator cend() const { return const_iterator(this, &_head); }
+  FORCEINLINE [[nodiscard]] iterator end() { return iterator(this, &_head); }
+  FORCEINLINE [[nodiscard]] const_iterator end() const { return const_iterator(this, &_head); }
+  FORCEINLINE [[nodiscard]] const_iterator cend() const { return const_iterator(this, &_head); }
   
-  [[nodiscard]] iterator rbegin() { return reverse_iterator(end()); }
-  [[nodiscard]] const_iterator rbegin() const { return const_reverse_iterator(end()); }
-  [[nodiscard]] const_iterator crbegin() const { return const_reverse_iterator(cend()); }
+  FORCEINLINE [[nodiscard]] iterator rbegin() { return reverse_iterator(end()); }
+  FORCEINLINE [[nodiscard]] const_iterator rbegin() const { return const_reverse_iterator(end()); }
+  FORCEINLINE [[nodiscard]] const_iterator crbegin() const { return const_reverse_iterator(cend()); }
   
-  [[nodiscard]] iterator rend() { return reverse_iterator(begin()); }
-  [[nodiscard]] const_iterator rend() const { return const_reverse_iterator(begin()); }
-  [[nodiscard]] const_iterator crend() const { return const_reverse_iterator(cbegin()); }
+  FORCEINLINE [[nodiscard]] iterator rend() { return reverse_iterator(begin()); }
+  FORCEINLINE [[nodiscard]] const_iterator rend() const { return const_reverse_iterator(begin()); }
+  FORCEINLINE [[nodiscard]] const_iterator crend() const { return const_reverse_iterator(cbegin()); }
 
-  [[nodiscard]] bool empty() const { return IsListEmpty(&_head) != FALSE; }
+  FORCEINLINE [[nodiscard]] bool empty() const { return IsListEmpty(&_head) != FALSE; }
 
-  void clear();
-  iterator insert(const_iterator pos, const T& value);
-  iterator insert(const_iterator pos, T&& value);
-  //iterator insert(const_iterator pos, size_type count, const T& value);
-  //template <class InputIt>
-  //iterator insert(const_iterator pos, InputIt first, InputIt last);
-  //iterator insert(const_iterator pos, std::initializer_list<T> ilist);
+  FORCEINLINE void clear();
+  FORCEINLINE iterator insert(const_iterator pos, const T& value);
+  FORCEINLINE iterator insert(const_iterator pos, T&& value);
+  //FORCEINLINE iterator insert(const_iterator pos, size_type count, const T& value);
+  //FORCEINLINE template <class InputIt>
+  //FORCEINLINE iterator insert(const_iterator pos, InputIt first, InputIt last);
+  //FORCEINLINE iterator insert(const_iterator pos, std::initializer_list<T> ilist);
   template <class... Args>
-  iterator emplace(const_iterator pos, Args&&... args);
-  iterator erase(iterator pos);
-  iterator erase(const_iterator pos);
-  iterator erase(iterator first, iterator last);
-  iterator erase(const_iterator first, const_iterator last);
-  iterator push_back(const T& value);
-  iterator push_back(T&& value);
+  FORCEINLINE iterator emplace(const_iterator pos, Args&&... args);
+  FORCEINLINE iterator erase(iterator pos);
+  FORCEINLINE iterator erase(const_iterator pos);
+  FORCEINLINE iterator erase(iterator first, iterator last);
+  FORCEINLINE iterator erase(const_iterator first, const_iterator last);
+  FORCEINLINE iterator push_back(const T& value);
+  FORCEINLINE iterator push_back(T&& value);
   //template <class... Args>
-  //reference emplace_back(Args&&... args);
-  iterator push_front(const T& value);
-  iterator push_front(T&& value);
+  //FORCEINLINE reference emplace_back(Args&&... args);
+  FORCEINLINE iterator push_front(const T& value);
+  FORCEINLINE iterator push_front(T&& value);
   template <class... Args>
-  iterator emplace_front(Args&&... args);
+  FORCEINLINE iterator emplace_front(Args&&... args);
   //template <class... Args>
-  //reference emplace_front(Args&&... args);
-  //void resize(size_type count);
-  //void resize(size_type count, const value_type& value);
-  void swap(klist& other) noexcept;
+  //FORCEINLINE reference emplace_front(Args&&... args);
+  //FORCEINLINE void resize(size_type count);
+  //FORCEINLINE void resize(size_type count, const value_type& value);
+  FORCEINLINE void swap(klist& other) noexcept;
 };
 
 template <class T, class Allocator>
@@ -249,7 +253,7 @@ void klist<T, Allocator>::clear() {
 }
 
 template <class T, class Allocator>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::insert(const_iterator pos, const T& value) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::insert(const_iterator pos, const T& value) {
   auto* node = std::allocator_traits<Allocator>::allocate(_alloc, 1);
   if (!node)
     return end();
@@ -260,7 +264,7 @@ typename klist<T, Allocator>::iterator klist<T, Allocator>::insert(const_iterato
 }
 
 template <class T, class Allocator>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::insert(const_iterator pos, T&& value) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::insert(const_iterator pos, T&& value) {
   auto* node = std::allocator_traits<Allocator>::allocate(_alloc, 1);
   if (!node)
     return end();
@@ -272,7 +276,7 @@ typename klist<T, Allocator>::iterator klist<T, Allocator>::insert(const_iterato
 
 template <class T, class Allocator>
 template <class... Args>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::emplace(const_iterator pos, Args&&... args) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::emplace(const_iterator pos, Args&&... args) {
   auto* node = std::allocator_traits<Allocator>::allocate(_alloc, 1);
   if (!node)
     return end();
@@ -283,7 +287,7 @@ typename klist<T, Allocator>::iterator klist<T, Allocator>::emplace(const_iterat
 }
 
 template <class T, class Allocator>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::erase(iterator pos) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::erase(iterator pos) {
   PLIST_ENTRY next = pos._entry->Flink;
   RemoveEntryList(pos._entry);
 
@@ -295,12 +299,12 @@ typename klist<T, Allocator>::iterator klist<T, Allocator>::erase(iterator pos) 
 }
 
 template <class T, class Allocator>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::erase(const_iterator pos) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::erase(const_iterator pos) {
   return erase(iterator(this, pos._entry));
 }
 
 template <class T, class Allocator>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::erase(iterator first, iterator last) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::erase(iterator first, iterator last) {
   while (first != last) {
     first = erase(first);
   }
@@ -308,33 +312,33 @@ typename klist<T, Allocator>::iterator klist<T, Allocator>::erase(iterator first
 }
 
 template <class T, class Allocator>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::erase(const_iterator first, const_iterator last) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::erase(const_iterator first, const_iterator last) {
   return erase(iterator(this, first._entry), iterator(this, last._entry));
 }
 
 template <class T, class Allocator>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::push_back(const T& value) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::push_back(const T& value) {
   return insert(end(), value);
 }
 
 template <class T, class Allocator>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::push_back(T&& value) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::push_back(T&& value) {
   return insert(end(), std::move(value));
 }
 
 template <class T, class Allocator>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::push_front(const T& value) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::push_front(const T& value) {
   return insert(begin(), value);
 }
 
 template <class T, class Allocator>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::push_front(T&& value) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::push_front(T&& value) {
   return insert(begin(), std::move(value));
 }
 
 template <class T, class Allocator>
 template <class... Args>
-typename klist<T, Allocator>::iterator klist<T, Allocator>::emplace_front(Args&&... args) {
+ klist<T, Allocator>::iterator klist<T, Allocator>::emplace_front(Args&&... args) {
   return emplace(begin(), std::forward<Args>(args)...);
 }
 

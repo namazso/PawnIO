@@ -62,12 +62,12 @@ public:
   using propagate_on_container_move_assignment = std::true_type;
   using is_always_equal = std::true_type;
 
-  constexpr kallocator() noexcept = default;
-  constexpr kallocator(const kallocator&) noexcept = default;
-  constexpr kallocator(kallocator&&) noexcept = default;
-  constexpr kallocator& operator=(const kallocator&) noexcept = default;
-  constexpr kallocator& operator=(kallocator&&) noexcept = default;
-  ~kallocator() = default;
+  FORCEINLINE constexpr kallocator() noexcept = default;
+  FORCEINLINE constexpr kallocator(const kallocator&) noexcept = default;
+  FORCEINLINE constexpr kallocator(kallocator&&) noexcept = default;
+  FORCEINLINE constexpr kallocator& operator=(const kallocator&) noexcept = default;
+  FORCEINLINE constexpr kallocator& operator=(kallocator&&) noexcept = default;
+  FORCEINLINE ~kallocator() = default;
 
   // Rebind for allocating other types
   template <typename U>
@@ -77,10 +77,10 @@ public:
 
   // Copy constructor
   template <typename U>
-  kallocator(const kallocator<U, PoolType>&) noexcept {}
+  FORCEINLINE kallocator(const kallocator<U, PoolType>&) noexcept {}
 
   // Required allocator functions
-  pointer allocate(size_type n) {
+  FORCEINLINE pointer allocate(size_type n) {
     // Allocate n objects of type T from kernel pool
     const size_t bytes = n * sizeof(T);
 
@@ -91,7 +91,7 @@ public:
     return static_cast<pointer>(p);
   }
 
-  void deallocate(pointer p, size_type) noexcept {
+  FORCEINLINE void deallocate(pointer p, size_type) noexcept {
     if (p) {
       ExFreePoolWithTag(p, k_tag);
     }
@@ -99,23 +99,23 @@ public:
 
   // Construction/destruction of objects
   template <typename U, typename... Args>
-  void construct(U* p, Args&&... args) {
+  FORCEINLINE void construct(U* p, Args&&... args) {
     ::new (static_cast<void*>(p)) U(std::forward<Args>(args)...);
   }
 
   template <typename U>
-  void destroy(U* p) {
+  FORCEINLINE void destroy(U* p) {
     p->~U();
   }
 };
 
 // Equality comparison operators
 template <typename T1, typename T2, POOL_TYPE PoolType>
-bool operator==(const kallocator<T1, PoolType>&, const kallocator<T2, PoolType>&) noexcept {
+FORCEINLINE bool operator==(const kallocator<T1, PoolType>&, const kallocator<T2, PoolType>&) noexcept {
   return true;
 }
 
 template <typename T1, typename T2, POOL_TYPE PoolType>
-bool operator!=(const kallocator<T1, PoolType>&, const kallocator<T2, PoolType>&) noexcept {
+FORCEINLINE bool operator!=(const kallocator<T1, PoolType>&, const kallocator<T2, PoolType>&) noexcept {
   return false;
 }

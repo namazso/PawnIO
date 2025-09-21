@@ -295,7 +295,7 @@ static NTSTATUS pci_config_write_raw(ULONG bus, ULONG device, ULONG function, UL
 #pragma warning(pop)
 
 template <typename T>
-static cell pci_config_read(cell bus, cell device, cell function, cell offset, cell& value) {
+FORCEINLINE static cell pci_config_read(cell bus, cell device, cell function, cell offset, cell& value) {
   T t{};
   const auto status = (cell)(scell)pci_config_read_raw((ULONG)bus, (ULONG)device, (ULONG)function, (ULONG)offset, &t, sizeof(t));
   value = t;
@@ -303,7 +303,7 @@ static cell pci_config_read(cell bus, cell device, cell function, cell offset, c
 }
 
 template <typename T>
-static cell pci_config_write(cell bus, cell device, cell function, cell offset, cell value) {
+FORCEINLINE static cell pci_config_write(cell bus, cell device, cell function, cell offset, cell value) {
   T t{(T)value};
   return (cell)(scell)pci_config_write_raw((ULONG)bus, (ULONG)device, (ULONG)function, (ULONG)offset, &t, sizeof(t));
 }

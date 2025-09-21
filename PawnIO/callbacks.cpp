@@ -55,16 +55,16 @@ class wrapped_resource {
   ERESOURCE _resource{};
 
 public:
-  NTSTATUS init() { return ExInitializeResourceLite(&_resource); }
-  NTSTATUS destroy() { return ExDeleteResourceLite(&_resource); }
+  FORCEINLINE NTSTATUS init() { return ExInitializeResourceLite(&_resource); }
+  FORCEINLINE NTSTATUS destroy() { return ExDeleteResourceLite(&_resource); }
 
-  void lock() { ExAcquireResourceExclusiveLite(&_resource, TRUE); }
-  bool try_lock() { return TRUE == ExAcquireResourceExclusiveLite(&_resource, FALSE); }
-  void unlock() { ExReleaseResourceLite(&_resource); }
+  FORCEINLINE void lock() { ExAcquireResourceExclusiveLite(&_resource, TRUE); }
+  FORCEINLINE bool try_lock() { return TRUE == ExAcquireResourceExclusiveLite(&_resource, FALSE); }
+  FORCEINLINE void unlock() { ExReleaseResourceLite(&_resource); }
 
-  void lock_shared() { ExAcquireResourceSharedLite(&_resource, TRUE); }
-  bool try_lock_shared() { return TRUE == ExAcquireResourceSharedLite(&_resource, FALSE); }
-  void unlock_shared() { ExReleaseResourceLite(&_resource); }
+  FORCEINLINE void lock_shared() { ExAcquireResourceSharedLite(&_resource, TRUE); }
+  FORCEINLINE bool try_lock_shared() { return TRUE == ExAcquireResourceSharedLite(&_resource, FALSE); }
+  FORCEINLINE void unlock_shared() { ExReleaseResourceLite(&_resource); }
 };
 
 template <typename Callback>
@@ -76,19 +76,19 @@ struct callback_list<Ret(*)(Args...)> {
   wrapped_resource res{};
   uninitialized_storage<klist<callback_t>> list{};
 
-  constexpr callback_list() = default;
+  FORCEINLINE constexpr callback_list() = default;
 
-  NTSTATUS init() {
+  FORCEINLINE NTSTATUS init() {
     list.construct();
     return res.init();
   }
 
-  void destroy() {
+  FORCEINLINE void destroy() {
     res.destroy();
     list.destroy();
   }
 
-  PVOID add(callback_t callback) {
+  FORCEINLINE PVOID add(callback_t callback) {
     std::unique_lock lock{res};
     auto& l = list.get();
     auto it = l.emplace_front(callback);
@@ -97,7 +97,7 @@ struct callback_list<Ret(*)(Args...)> {
     return it.as_entry();
   }
 
-  void remove(PVOID cookie) {
+  FORCEINLINE void remove(PVOID cookie) {
     if (!cookie)
       return;
     std::unique_lock lock{res};
@@ -105,7 +105,7 @@ struct callback_list<Ret(*)(Args...)> {
     l.erase(l.citer_from_entry((PLIST_ENTRY)cookie));
   }
 
-  NTSTATUS call_status(Args... args)
+  FORCEINLINE NTSTATUS call_status(Args... args)
     requires(std::is_same_v<Ret, NTSTATUS>) {
     std::shared_lock lock{res};
     NTSTATUS status = STATUS_SUCCESS;
@@ -117,7 +117,7 @@ struct callback_list<Ret(*)(Args...)> {
     return status;
   }
 
-  void call_void(Args... args)
+  FORCEINLINE void call_void(Args... args)
     requires(std::is_same_v<Ret, void>) {
     std::shared_lock lock{res};
     for (const auto cb : list.get()) {

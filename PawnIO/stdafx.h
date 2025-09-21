@@ -54,10 +54,12 @@
 #include <bcrypt.h>
 #include <malloc.h>
 
+#include <cstdint>
+#include <cstdarg>
+
 #include <algorithm>
 #include <tuple>
 #include <array>
-#include <cstdint>
 #include <type_traits>
 #include <utility>
 #include <bit>

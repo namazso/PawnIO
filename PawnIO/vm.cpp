@@ -362,7 +362,7 @@ static ptrdiff_t amx_strcpy(char* dst, size_t dst_len, amx64* amx, cell vfmt) {
       break;
     }
   }
-  
+
   return (ptrdiff_t)idx - 1;
 }
 
@@ -417,11 +417,140 @@ amx::error get_public(amx64* amx, amx64_loader* loader, void* user, cell argc, c
   return amx::error::success;
 }
 
+class wrapped_fast_mutex {
+  FAST_MUTEX _mutex{};
+
+public:
+  FORCEINLINE void init() { return ExInitializeFastMutex(&_mutex); }
+
+  FORCEINLINE void lock() { ExAcquireFastMutex(&_mutex); }
+  FORCEINLINE bool try_lock() { return TRUE == ExTryToAcquireFastMutex(&_mutex); }
+  FORCEINLINE void unlock() { ExReleaseFastMutex(&_mutex); }
+};
+
+struct context {
+  std::aligned_storage_t<sizeof(amx64_loader), alignof(amx64_loader)> loader_storage;
+  amx64_loader* loader;
+  const uint8_t* original_buf;
+  size_t original_buf_size;
+  wrapped_fast_mutex mutex;
+};
+
+struct to_amx_callback_context {
+  context* ctx;
+  cell cip;
+};
+
+constexpr static size_t k_to_amx_callback_count = 0x100;
+
+static to_amx_callback_context s_to_amx_callback_data[k_to_amx_callback_count];
+
+static __declspec(noinline) cell to_amx_callback_dispatch(size_t idx, cell args) {
+  const auto cb_ctx = &s_to_amx_callback_data[idx];
+  const auto vm_ctx = cb_ctx->ctx;
+  if (!vm_ctx)
+    __fastfail(FAST_FAIL_INVALID_JUMP_BUFFER);
+  std::unique_lock lock{vm_ctx->mutex};
+  const auto cip = cb_ctx->cip;
+  if (!cip)
+    __fastfail(FAST_FAIL_INVALID_JUMP_BUFFER);
+  cell ret{};
+  const auto status = vm_callback_precall(vm_ctx, cip);
+  if (!NT_SUCCESS(status))
+    __fastfail(FAST_FAIL_GUARD_ICALL_CHECK_FAILURE);
+  const auto res = vm_ctx->loader->amx.call(cip, ret, {args});
+  if (res != amx::error::success)
+    __fastfail(FAST_FAIL_INVALID_THREAD_STATE);
+  return ret;
+}
+
+template <size_t Idx>
+static cell to_amx_callback(cell, ...) {
+  va_list va{};
+  __va_start(&va, 0); // msvc hack
+  const auto args = (cell)va;
+  const auto rv = to_amx_callback_dispatch(Idx, args);
+  return rv;
+}
+
+// Define a type for the callback function pointer
+using to_amx_callback_fn = decltype(&to_amx_callback<0>);
+
+// Helper template to generate the array with all indices
+template <size_t... Indices>
+static constexpr std::array<to_amx_callback_fn, sizeof...(Indices)> make_callback_array(std::index_sequence<Indices...>) {
+  return {&to_amx_callback<Indices>...};
+}
+
+// Generate the array with indices from 0 to k_to_amx_callback_count-1
+static constexpr auto k_to_amx_callback_fns = make_callback_array(std::make_index_sequence<k_to_amx_callback_count>{});
+
+static cell to_amx_callback_alloc(context* vm_ctx, cell cip) {
+  for (size_t i = 0; i < k_to_amx_callback_count; ++i) {
+    auto& cb_ctx = s_to_amx_callback_data[i];
+    if (cb_ctx.ctx == nullptr) {
+      if (nullptr == _InterlockedCompareExchangePointer((PVOID volatile*)&cb_ctx.ctx, vm_ctx, nullptr)) {
+        cb_ctx.cip = cip;
+        return (cell)k_to_amx_callback_fns[i];
+      }
+    }
+  }
+  return 0;
+}
+
+static void to_amx_callback_free(context* vm_ctx, cell pfn) {
+  size_t i;
+  for (i = 0; i < k_to_amx_callback_count; ++i)
+    if (pfn == (cell)k_to_amx_callback_fns[i])
+      break;
+  if (i == k_to_amx_callback_count)
+    __fastfail(FAST_FAIL_ASAN_ERROR);
+  auto& cb_ctx = s_to_amx_callback_data[i];
+  if (cb_ctx.ctx != vm_ctx)
+    __fastfail(FAST_FAIL_ASAN_ERROR);
+  cb_ctx.cip = 0;
+  cb_ctx.ctx = nullptr;
+}
+
+static amx::error to_amx_callback_alloc_wrap(amx64* amx, amx64_loader* loader, void* user, cell argc, cell argv, cell& retval) {
+  UNREFERENCED_PARAMETER(loader);
+
+  if (argc != 1)
+    return amx::error::invalid_operand;
+  const auto pcip = amx->data_v2p(argv);
+  if (!pcip)
+    return amx::error::access_violation;
+  const auto cip = *pcip;
+
+  retval = to_amx_callback_alloc((context*)user, cip);
+
+  return amx::error::success;
+}
+
+static amx::error to_amx_callback_free_wrap(amx64* amx, amx64_loader* loader, void* user, cell argc, cell argv, cell& retval) {
+  UNREFERENCED_PARAMETER(loader);
+
+  retval = 0;
+
+  if (argc != 1)
+    return amx::error::invalid_operand;
+  const auto ppfn = amx->data_v2p(argv);
+  if (!ppfn)
+    return amx::error::access_violation;
+  const auto pfn = *ppfn;
+
+  to_amx_callback_free((context*)user, pfn);
+
+  return amx::error::success;
+}
+
 const static amx64_loader::native_arg NATIVES[] =
 {
   {"debug_print", &debug_print},
   {"get_proc_address", &get_proc_address_wrap},
   {"get_public", &get_public},
+  {"callback_alloc", &to_amx_callback_alloc_wrap},
+  {"callback_free", &to_amx_callback_free_wrap},
 
 #define DEFINE_NATIVE(name) { #name, &native_callback_wrapper<&name> }
 
@@ -555,14 +684,6 @@ void __cdecl operator delete(void*, size_t) {
   __debugbreak();
 }
 
-struct context {
-  std::aligned_storage_t<sizeof(amx64_loader), alignof(amx64_loader)> loader_storage;
-  amx64_loader* loader;
-  const uint8_t* original_buf;
-  size_t original_buf_size;
-  FAST_MUTEX mutex;
-};
-
 constexpr static uint8_t k_pubkey_namazso_2023[] = {0x52, 0x53, 0x41, 0x31, 0x00, 0x10, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0xB5, 0x45, 0xB8, 0x15, 0xF0, 0x2A, 0xEB, 0xCA, 0xC9, 0x35, 0x8F, 0x54, 0x15, 0x83, 0x12, 0x2C, 0xC3, 0xF3, 0x5E, 0x1E, 0xE7, 0xFB, 0xD3, 0xE1, 0x68, 0x73, 0x3B, 0x36, 0xC0, 0x5C, 0x6F, 0xD3, 0xBA, 0xF4, 0xD0, 0xA9, 0x9B, 0x6E, 0x9C, 0x66, 0x43, 0x2F, 0xC9, 0xB2, 0x82, 0xDF, 0x24, 0x6D, 0x8F, 0x5F, 0x45, 0xAF, 0x02, 0xDD, 0x6A, 0xEF, 0x04, 0x01, 0x74, 0x69, 0xC3, 0x20, 0x70, 0xDB, 0x3F, 0x05, 0x97, 0x9E, 0xE6, 0x01, 0x6B, 0x9E, 0x28, 0x53, 0x03, 0x59, 0x02, 0x98, 0x4C, 0x41, 0xAB, 0xB2, 0x56, 0x5F, 0xD6, 0x24, 0x98, 0xD1, 0xB3, 0xF9, 0xF8, 0x46, 0xC7, 0x21, 0x4B, 0xDF, 0xFD, 0xF2, 0x88, 0x2A, 0xCE, 0xDC, 0x75, 0x36, 0x40, 0xC2, 0x5E, 0x0B, 0x26, 0x17, 0x7A, 0x3D, 0xD6, 0x34, 0xD7, 0x47, 0xD6, 0x61, 0xE1, 0x33, 0xD7, 0x7A, 0x00, 0x7E, 0x9F, 0xEB, 0x92, 0x33, 0x52, 0x65, 0x8E, 0xF8, 0x7C, 0x49, 0xD4, 0x22, 0xB8, 0x22, 0xBD, 0x59, 0x56, 0xBC, 0xD5, 0x1B, 0x64, 0x4C, 0x91, 0x50, 0xAB, 0x1F, 0x67, 0x9F, 0x84, 0xDD, 0x8B, 0x4F, 0xFC, 0x28, 0x26, 0x52, 0x36, 0x49, 0x67, 0x0D, 0x6C, 0xA4, 0xA1, 0xAA, 0xEC, 0x2B, 0xB0, 0x05, 0x09, 0x08, 0x20, 0x38, 0x82, 0xAE, 0x47, 0xB9, 0x3C, 0xAE, 0x50, 0xBF, 0x93, 0x69, 0x94, 0xB5, 0x98, 0x7C, 0xA8, 0x2E, 0xA9, 0x8E, 0x7B, 0xC2, 0xB2, 0x12, 0xB9, 0xB1, 0x62, 0x46, 0x3C, 0xED, 0x24, 0x9C, 0x89, 0xE0, 0xB8, 0x46, 0x26, 0x1A, 0x5A, 0x08, 0xD6, 0xF0, 0x2A, 0xA3, 0x28, 0xB6, 0x73, 0x60, 0xAE, 0xC3, 0x2D, 0x4C, 0x5A, 0x24, 0xF1, 0x58, 0x4C, 0x51, 0xD2, 0x66, 0xE9, 0xD9, 0x61, 0x98, 0x4D, 0xDE, 0x94, 0xD8, 0x44, 0x1F, 0x62, 0xF6, 0x4E, 0xF9, 0x73, 0x44, 0xA4, 0x7A, 0x2C, 0x2D, 0xC1, 0xDB, 0x4F, 0x58, 0xD6, 0x70, 0xB2, 0x6E, 0xE8, 0xD9, 0x50, 0x01, 0x35, 0x4F, 0x39, 0x49, 0x2E, 0x09, 0x76, 0x47, 0x9C, 0x3C, 0x7E, 0x72, 0x33, 0xCA, 0x13, 0xD7, 0x29, 0x82, 0xFB, 0x14, 0xAD, 0x4E, 0xC3, 0xA6, 0xC6, 0x4C, 0x18, 0x84, 0xB5, 0x83, 0x7A, 0xF0, 0x99, 0xBA, 0x1D, 0x56, 0xD2, 0xA2, 0xDF, 0x14, 0x34, 0x01, 0x6F, 0x83, 0x8D, 0xB8, 0xA0, 0x16, 0x2C, 0x36, 0x90, 0x0F, 0x96, 0x2D, 0x3B, 0x80, 0x58, 0x5C, 0xE7, 0x9D, 0x0D, 0x73, 0x38, 0xCA, 0xEE, 0x43, 0xF7, 0xC0, 0x37, 0xA4, 0xEA, 0xDD, 0x76, 0xCC, 0xA2, 0xF3, 0x54, 0xC8, 0x45, 0xC9, 0xBE, 0x3F, 0xCE, 0xAA, 0x98, 0x2F, 0x4C, 0x97, 0x87, 0x56, 0x00, 0x81, 0x6A, 0x7A, 0x41, 0x52, 0xF7, 0xF9, 0x0D, 0xEE, 0x5D, 0xB6, 0x05, 0x1F, 0x40, 0x9F, 0xDE, 0x75, 0x97, 0xD5, 0x8F, 0x28, 0x04, 0xDA, 0x57, 0xA2, 0x76, 0x52, 0x49, 0x35, 0xAC, 0x54, 0xF3, 0x09, 0xA6, 0x68, 0xEC, 0x84, 0xB8, 0x87, 0xD9, 0xBE, 0x26, 0xED, 0xFD, 0x75, 0x7D, 0x2A, 0x1B, 0x55, 0x18, 0x31, 0xA7, 0xA0, 0x44, 0xC5, 0x4A, 0x05, 0xD2, 0x55, 0x44, 0x70, 0x1D, 0x35, 0xE4, 0x61, 0x03, 0x5D, 0x82, 0x3C, 0x48, 0x40, 0x5F, 0x58, 0x64, 0x4E, 0xFF, 0xA6, 0xA1, 0x24, 0x7A, 0xAC, 0xF0, 0xF8, 0x3F, 0x9E, 0x9B, 0xE0, 0x53, 0x04, 0x55, 0xB1, 0xED, 0xDC, 0xC0, 0xC9, 0x9E, 0x5E, 0x31, 0x46, 0x09, 0x83, 0x51, 0x41, 0xBD, 0x41, 0x73, 0xC0, 0xD8, 0x36, 0x23, 0xAE, 0x0B, 0xDF, 0x89, 0x67, 0x2A, 0xC7, 0x56, 0x36, 0xA8, 0xE2, 0x76, 0xB8, 0xCB, 0x75, 0xA1, 0xF0, 0x7C, 0xAC, 0x4D, 0xCD, 0x56, 0xBB, 0x6A, 0x03, 0xCA, 0x7A, 0x89, 0xD2, 0x06, 0xE9, 0x02, 0x48, 0x17, 0x2F, 0xCF, 0xBC, 0xC1, 0xB6, 0xF7, 0xBF, 0x8A, 0xC1, 0xA7, 0x9B};
 
 constexpr static trusted_pubkey k_trusted_keys[] = {
@@ -622,17 +743,17 @@ static NTSTATUS vm_load_binary_internal(context** ctx, PVOID buffer, SIZE_T size
         memcpy(copy, buffer, size);
         my_ctx->original_buf = copy;
         my_ctx->original_buf_size = size;
-        ExInitializeFastMutex(&my_ctx->mutex);
+        my_ctx->mutex.init();
         const auto loader = new(&my_ctx->loader_storage) amx64_loader();
         my_ctx->loader = loader;
 
-        constexpr static amx64_loader::callbacks_arg callbacks
+        const amx64_loader::callbacks_arg callbacks
         {
-          NATIVES,
-          std::size(NATIVES),
-          nullptr,
-          nullptr,
-          nullptr
+          .natives = NATIVES,
+          .natives_count = std::size(NATIVES),
+          .on_single_step = nullptr,
+          .on_break = nullptr,
+          .user_data = my_ctx
         };
 
         const auto result = loader->init(mem, len, callbacks);
@@ -671,10 +792,14 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
   if (!NT_SUCCESS(status))
     return status;
 
-  status = vm_callback_created(my_ctx);
+  {
+    std::unique_lock lock{my_ctx->mutex};
+    status = vm_callback_created(my_ctx);
+  }
   if (NT_SUCCESS(status)) {
     const auto loader = my_ctx->loader;
     if (const auto main = loader->get_main()) {
+      std::unique_lock lock{my_ctx->mutex};
       status = vm_callback_precall(my_ctx, main);
       if (NT_SUCCESS(status)) {
         cell ret{};
@@ -690,7 +815,10 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
   }
 
   if (!NT_SUCCESS(status)) {
-    vm_callback_destroyed(my_ctx);
+    {
+      std::unique_lock lock{my_ctx->mutex};
+      vm_callback_destroyed(my_ctx);
+    }
     vm_destroy_internal(my_ctx);
     return status;
   }
@@ -733,34 +861,33 @@ NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID o
 
   NTSTATUS status = STATUS_SUCCESS;
 
-  ExAcquireFastMutex(&my_ctx->mutex);
-
-  if (amx.mem.data().map(cell_in_buffer, cell_in_count, cell_in_va)) {
-    if (amx.mem.data().map(cell_out_buffer, cell_out_count, cell_out_va)) {
-      status = vm_callback_precall(my_ctx, fn);
-      if (NT_SUCCESS(status)) {
-        amx64::cell out{};
-        const auto DAT = loader->amx.DAT;
-        const auto ret = loader->amx.call(fn, out, {cell_in_va - DAT, cell_in_count, cell_out_va - DAT, cell_out_count});
-        vm_callback_postcall(my_ctx);
-        if (ret != amx::error::success) {
-          DbgPrint("[PawnIO] Call to %s failed: %X\n", arr, ret);
-          status = STATUS_UNSUCCESSFUL;
-        } else {
-          status = (NTSTATUS)out;
+  {
+    std::unique_lock lock{my_ctx->mutex};
+    if (amx.mem.data().map(cell_in_buffer, cell_in_count, cell_in_va)) {
+      if (amx.mem.data().map(cell_out_buffer, cell_out_count, cell_out_va)) {
+        status = vm_callback_precall(my_ctx, fn);
+        if (NT_SUCCESS(status)) {
+          amx64::cell out{};
+          const auto DAT = loader->amx.DAT;
+          const auto ret = loader->amx.call(fn, out, {cell_in_va - DAT, cell_in_count, cell_out_va - DAT, cell_out_count});
+          vm_callback_postcall(my_ctx);
+          if (ret != amx::error::success) {
+            DbgPrint("[PawnIO] Call to %s failed: %X\n", arr, ret);
+            status = STATUS_UNSUCCESSFUL;
+          } else {
+            status = (NTSTATUS)out;
+          }
         }
-      }
 
-      amx.mem.data().unmap(cell_out_va, cell_out_count);
+        amx.mem.data().unmap(cell_out_va, cell_out_count);
+      } else {
+        status = STATUS_UNSUCCESSFUL;
+      }
+      amx.mem.data().unmap(cell_in_va, cell_in_count);
     } else {
       status = STATUS_UNSUCCESSFUL;
     }
-    amx.mem.data().unmap(cell_in_va, cell_in_count);
-  } else {
-    status = STATUS_UNSUCCESSFUL;
   }
-
-  ExReleaseFastMutex(&my_ctx->mutex);
 
   return status;
 }
@@ -771,6 +898,7 @@ NTSTATUS vm_destroy(PVOID ctx) {
     const auto loader = my_ctx->loader;
     const auto fn = loader->get_public("unload");
     if (fn) {
+      std::unique_lock lock{my_ctx->mutex};
       auto status = vm_callback_precall(my_ctx, fn);
       if (NT_SUCCESS(status)) {
         cell ret{};
@@ -778,8 +906,13 @@ NTSTATUS vm_destroy(PVOID ctx) {
         vm_callback_postcall(my_ctx);
       }
     }
-    vm_callback_destroyed(my_ctx);
-    return vm_destroy_internal(my_ctx);
+    {
+      {
+        std::unique_lock lock{my_ctx->mutex};
+        vm_callback_destroyed(my_ctx);
+      }
+      return vm_destroy_internal(my_ctx);
+    }
   }
 
   return STATUS_SUCCESS;

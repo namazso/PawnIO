@@ -339,6 +339,33 @@ leave:
   return amx::error::success;
 }
 
+static ptrdiff_t amx_strcpy(char* dst, size_t dst_len, amx64* amx, cell vfmt) {
+  auto vit = vfmt;
+  size_t idx = 0;
+  while (true) {
+    const auto pc = amx->mem.data().translate(vit);
+    vit += sizeof(cell);
+    if (!pc)
+      return -1;
+    const auto c = (char)*pc;
+
+    if (dst_len != 0)
+      dst[idx] = c;
+
+    ++idx;
+
+    if (!c)
+      break;
+
+    if (idx == dst_len) {
+      dst[dst_len - 1] = 0;
+      break;
+    }
+  }
+  
+  return (ptrdiff_t)idx - 1;
+}
+
 amx::error get_proc_address_wrap(amx64* amx, amx64_loader* loader, void* user, cell argc, cell argv, cell& retval) {
   UNREFERENCED_PARAMETER(loader);
   UNREFERENCED_PARAMETER(user);
@@ -346,7 +373,6 @@ amx::error get_proc_address_wrap(amx64* amx, amx64_loader* loader, void* user, c
   retval = 0;
 
   char func_name[1024]{};
-  size_t idx = 0;
 
   if (argc == 0)
     return amx::error::invalid_operand;
@@ -354,24 +380,39 @@ amx::error get_proc_address_wrap(amx64* amx, amx64_loader* loader, void* user, c
   if (!pvfmt)
     return amx::error::access_violation;
   const auto vfmt = *pvfmt;
-  auto vit = vfmt;
-  while (true) {
-    const auto pc = amx->mem.data().translate(vit);
-    vit += sizeof(cell);
-    if (!pc)
-      return amx::error::access_violation;
-    const auto c = (char)*pc;
 
-    func_name[idx++] = c;
-
-    if (!c)
-      break;
-
-    if (idx == std::size(func_name))
-      return amx::error::access_violation;
-  }
+  const auto res = amx_strcpy(func_name, std::size(func_name), amx, vfmt);
+  if (res == 0)
+    return amx::error::invalid_operand;
+  if (res == -1)
+    return amx::error::access_violation;
 
   retval = get_proc_address(func_name);
+
+  return amx::error::success;
+}
+
+amx::error get_public(amx64* amx, amx64_loader* loader, void* user, cell argc, cell argv, cell& retval) {
+  UNREFERENCED_PARAMETER(user);
+
+  retval = 0;
+
+  char func_name[33]{};
+
+  if (argc == 0)
+    return amx::error::invalid_operand;
+  const auto pvfmt = amx->data_v2p(argv);
+  if (!pvfmt)
+    return amx::error::access_violation;
+  const auto vfmt = *pvfmt;
+
+  const auto res = amx_strcpy(func_name, std::size(func_name), amx, vfmt);
+  if (res == 0)
+    return amx::error::invalid_operand;
+  if (res == -1)
+    return amx::error::access_violation;
+
+  retval = loader->get_public(func_name);
 
   return amx::error::success;
 }
@@ -380,6 +421,7 @@ const static amx64_loader::native_arg NATIVES[] =
 {
   {"debug_print", &debug_print},
   {"get_proc_address", &get_proc_address_wrap},
+  {"get_public", &get_public},
 
 #define DEFINE_NATIVE(name) { #name, &native_callback_wrapper<&name> }
 

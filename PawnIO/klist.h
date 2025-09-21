@@ -148,14 +148,14 @@ public:
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 private:
+  LIST_ENTRY _head{
+    &_head,
+    &_head
+  };
   Allocator _alloc{};
-  LIST_ENTRY _head{};
 
 public:
-  constexpr klist() noexcept {
-    _head.Flink = &_head;
-    _head.Blink = &_head;
-  }
+  constexpr klist() noexcept = default;
 
   klist(const klist& other) = delete;
 

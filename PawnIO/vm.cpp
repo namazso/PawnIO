@@ -302,15 +302,17 @@ amx::error debug_print(amx64* amx, amx64_loader* loader, void* user, cell argc, 
         break;
       }
 
-    const auto len = strlen(to_cat);
-    if (it + len >= last)
-      break; // just truncate
+    {
+      const auto len = strlen(to_cat);
+      if (it + len >= last)
+        break; // just truncate
 
-    memcpy(it, to_cat, len);
-    it[len] = 0;
-    it += len;
+      memcpy(it, to_cat, len);
+      it[len] = 0;
+      it += len;
 
-    continue;
+      continue;
+    }
 
 leave:
     break;
@@ -544,7 +546,7 @@ static NTSTATUS check_signature(const void* mem, size_t len, const uint8_t* sig,
   return status;
 }
 
-NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
+static NTSTATUS vm_load_binary_internal(context** ctx, PVOID buffer, SIZE_T size) {
   *ctx = nullptr;
 
   if (size < 4)
@@ -563,70 +565,99 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
   status = STATUS_SUCCESS;
 #endif
 
+  if (NT_SUCCESS(status)) {
+    // extra copy
+    const auto copy = (uint8_t*)ExAllocatePoolZero(NonPagedPoolNxCacheAligned, size, 'cpmA');
+    if (!copy) {
+      status = STATUS_NO_MEMORY;
+    } else {
+      // load
+      const auto my_ctx = (context*)ExAllocatePoolZero(NonPagedPoolNxCacheAligned, sizeof(context), 'OIwP');
+      if (!my_ctx) {
+        status = STATUS_NO_MEMORY;
+      } else {
+        memcpy(copy, buffer, size);
+        my_ctx->original_buf = copy;
+        my_ctx->original_buf_size = size;
+        ExInitializeFastMutex(&my_ctx->mutex);
+        const auto loader = new(&my_ctx->loader_storage) amx64_loader();
+        my_ctx->loader = loader;
+
+        constexpr static amx64_loader::callbacks_arg callbacks
+        {
+          NATIVES,
+          std::size(NATIVES),
+          nullptr,
+          nullptr,
+          nullptr
+        };
+
+        const auto result = loader->init(mem, len, callbacks);
+
+        if (result != amx::loader_error::success) {
+          status = STATUS_UNSUCCESSFUL;
+        } else {
+          *ctx = my_ctx;
+          return STATUS_SUCCESS;
+        }
+
+        loader->~amx64_loader();
+        ExFreePool(my_ctx);
+      }
+
+      ExFreePool(copy);
+    }
+  }
+  return status;
+}
+
+static NTSTATUS vm_destroy_internal(context* ctx) {
+  const auto loader = ctx->loader;
+  const auto copy = const_cast<uint8_t*>(ctx->original_buf);
+  loader->~amx64_loader();
+  ExFreePool(ctx);
+  ExFreePool(copy);
+  return STATUS_SUCCESS;
+}
+
+NTSTATUS vm_callback_created(PVOID) { return STATUS_SUCCESS; }
+NTSTATUS vm_callback_precall(PVOID, UINT_PTR) { return STATUS_SUCCESS; }
+void vm_callback_postcall(PVOID) {}
+void vm_callback_destroy(PVOID) {}
+
+NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
+  *ctx = nullptr;
+
+  context* my_ctx{};
+  auto status = vm_load_binary_internal(&my_ctx, buffer, size);
   if (!NT_SUCCESS(status))
     return status;
 
-  // extra copy
-  const auto copy = (uint8_t*)ExAllocatePoolZero(NonPagedPoolNxCacheAligned, size, 'cpmA');
-  if (!copy)
-    return STATUS_NO_MEMORY;
+  status = vm_callback_created(my_ctx);
+  if (NT_SUCCESS(status)) {
+    const auto loader = my_ctx->loader;
+    if (const auto main = loader->get_main()) {
+      status = vm_callback_precall(my_ctx, main);
+      if (NT_SUCCESS(status)) {
+        cell ret{};
+        const auto res = loader->amx.call(main, ret);
+        vm_callback_postcall(my_ctx);
 
-  memcpy(copy, buffer, size);
-
-  // load
-  const auto my_ctx = (context*)ExAllocatePoolZero(NonPagedPoolNxCacheAligned, sizeof(context), 'OIwP');
-  if (!my_ctx) {
-    status = STATUS_NO_MEMORY;
-    goto fail_copy;
+        if (res != amx::error::success)
+          status = STATUS_UNSUCCESSFUL;
+        else
+          status = (NTSTATUS)ret;
+      }
+    }
   }
 
-  my_ctx->original_buf = copy;
-  my_ctx->original_buf_size = size;
-
-  const auto loader = new(&my_ctx->loader_storage) amx64_loader();
-  my_ctx->loader = loader;
-
-  constexpr static amx64_loader::callbacks_arg callbacks
-  {
-    NATIVES,
-    std::size(NATIVES),
-    nullptr,
-    nullptr,
-    nullptr
-  };
-
-  const auto result = loader->init(mem, len, callbacks);
-
-  if (result != amx::loader_error::success) {
-    status = STATUS_UNSUCCESSFUL;
-    goto fail_destruct;
+  if (!NT_SUCCESS(status)) {
+    vm_callback_destroy(my_ctx);
+    vm_destroy_internal(my_ctx);
+    return status;
   }
-
-  const auto main = loader->get_main();
-  if (main) {
-    cell ret{};
-    const auto res = loader->amx.call(main, ret);
-
-    if (res != amx::error::success)
-      status = STATUS_UNSUCCESSFUL;
-    else
-      status = (NTSTATUS)ret;
-
-    if (!NT_SUCCESS(status))
-      goto fail_destruct;
-  }
-
-  ExInitializeFastMutex(&my_ctx->mutex);
 
   *ctx = my_ctx;
-
-  return STATUS_SUCCESS;
-
-fail_destruct:
-  loader->~amx64_loader();
-  ExFreePool(my_ctx);
-fail_copy:
-  ExFreePool(copy);
   return status;
 }
 
@@ -668,14 +699,19 @@ NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID o
 
   if (amx.mem.data().map(cell_in_buffer, cell_in_count, cell_in_va)) {
     if (amx.mem.data().map(cell_out_buffer, cell_out_count, cell_out_va)) {
-      amx64::cell out{};
-      const auto DAT = loader->amx.DAT;
-      const auto ret = loader->amx.call(fn, out, {cell_in_va - DAT, cell_in_count, cell_out_va - DAT, cell_out_count});
-      if (ret != amx::error::success) {
-        DbgPrint("[PawnIO] Call to %s failed: %X\n", arr, ret);
-        status = STATUS_UNSUCCESSFUL;
-      } else
-        status = (NTSTATUS)out;
+      status = vm_callback_precall(my_ctx, fn);
+      if (NT_SUCCESS(status)) {
+        amx64::cell out{};
+        const auto DAT = loader->amx.DAT;
+        const auto ret = loader->amx.call(fn, out, {cell_in_va - DAT, cell_in_count, cell_out_va - DAT, cell_out_count});
+        vm_callback_postcall(my_ctx);
+        if (ret != amx::error::success) {
+          DbgPrint("[PawnIO] Call to %s failed: %X\n", arr, ret);
+          status = STATUS_UNSUCCESSFUL;
+        } else {
+          status = (NTSTATUS)out;
+        }
+      }
 
       amx.mem.data().unmap(cell_out_va, cell_out_count);
     } else {
@@ -697,11 +733,15 @@ NTSTATUS vm_destroy(PVOID ctx) {
     const auto loader = my_ctx->loader;
     const auto fn = loader->get_public("unload");
     if (fn) {
-      cell ret{};
-      loader->amx.call(fn, ret);
+      auto status = vm_callback_precall(my_ctx, fn);
+      if (NT_SUCCESS(status)) {
+        cell ret{};
+        loader->amx.call(fn, ret);
+        vm_callback_postcall(my_ctx);
+      }
     }
-    loader->~amx64_loader();
-    ExFreePool(my_ctx);
+    vm_callback_destroy(my_ctx);
+    return vm_destroy_internal(my_ctx);
   }
 
   return STATUS_SUCCESS;

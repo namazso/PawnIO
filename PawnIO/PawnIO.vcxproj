@@ -95,7 +95,7 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <WppEnabled>false</WppEnabled>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/kernel /utf-8 /INTEGRITYCHECK /d1nodatetime /Brepro %(AdditionalOptions)</AdditionalOptions>
       <GuardEHContMetadata>true</GuardEHContMetadata>
       <PrecompiledHeader>Use</PrecompiledHeader>

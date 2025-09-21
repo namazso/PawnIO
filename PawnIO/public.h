@@ -55,3 +55,27 @@ struct trusted_pubkey {
 
 PAWNIO_PUBLICAPI ULONG pawnio_version();
 PAWNIO_PUBLICAPI const struct trusted_pubkey* pawnio_trusted_keys();
+
+typedef NTSTATUS pawnio_vm_callback_created(PVOID ctx);
+typedef pawnio_vm_callback_created* ppawnio_vm_callback_created;
+
+PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_created(ppawnio_vm_callback_created callback);
+PAWNIO_PUBLICAPI void pawnio_unregister_vm_callback_created(PVOID cookie);
+
+typedef NTSTATUS pawnio_vm_callback_precall(PVOID ctx, UINT_PTR cip);
+typedef pawnio_vm_callback_precall* ppawnio_vm_callback_precall;
+
+PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_precall(ppawnio_vm_callback_precall callback);
+PAWNIO_PUBLICAPI void pawnio_unregister_vm_callback_precall(PVOID cookie);
+
+typedef void pawnio_vm_callback_postcall(PVOID ctx);
+typedef pawnio_vm_callback_postcall* ppawnio_vm_callback_postcall;
+
+PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_postcall(ppawnio_vm_callback_postcall callback);
+PAWNIO_PUBLICAPI void pawnio_unregister_vm_callback_postcall(PVOID cookie);
+
+typedef void pawnio_vm_callback_destroyed(PVOID ctx);
+typedef pawnio_vm_callback_destroyed* ppawnio_vm_callback_destroyed;
+
+PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_destroyed(ppawnio_vm_callback_destroyed callback);
+PAWNIO_PUBLICAPI void pawnio_unregister_vm_callback_destroyed(PVOID cookie);

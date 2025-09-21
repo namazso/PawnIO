@@ -46,19 +46,12 @@
 
 #pragma once
 
-#define INITGUID
+#include "public.h"
 
-#include <ntddk.h>
+NTSTATUS vm_callback_init();
+void vm_callback_destroy();
 
-#include <intrin.h>
-#include <bcrypt.h>
-#include <malloc.h>
-
-#include <algorithm>
-#include <tuple>
-#include <array>
-#include <cstdint>
-#include <type_traits>
-#include <utility>
-#include <bit>
-#include <shared_mutex>
+NTSTATUS vm_callback_created(PVOID ctx);
+NTSTATUS vm_callback_precall(PVOID ctx, UINT_PTR cip);
+void vm_callback_postcall(PVOID ctx);
+void vm_callback_destroyed(PVOID ctx);

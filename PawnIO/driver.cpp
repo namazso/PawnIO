@@ -50,6 +50,7 @@
 #include "vm.h"
 #include "public.h"
 #include "version.h"
+#include "callbacks.h"
 
 ULONG pawnio_version() {
   return (PAWNIO_MAJOR << 16) | (PAWNIO_MINOR << 8) | PAWNIO_PATCH;
@@ -62,6 +63,8 @@ static void driver_unload(PDRIVER_OBJECT driver_object) {
 
   if (device_object)
     IoDeleteDevice(device_object);
+
+  vm_callback_destroy();
 }
 
 DEFINE_GUID(k_device_class, 0x7c619961, 0xf266, 0x4c1b, 0x84, 0x72, 0x8d, 0x00, 0x47, 0xd6, 0xd4, 0x7a);
@@ -92,31 +95,36 @@ DECLARE_CONST_UNICODE_STRING(SDDL_DEVOBJ_SYS_ALL_ADM_ALL, L"D:P(A;;GA;;;SY)(A;;G
 EXTERN_C NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING registry_path) {
   UNREFERENCED_PARAMETER(registry_path);
 
-  UNICODE_STRING device_path = RTL_CONSTANT_STRING(k_device_path);
-  PDEVICE_OBJECT device_object = nullptr;
-  auto status = IoCreateDeviceSecure(
-    driver_object,
-    0,
-    &device_path,
-    k_device_type,
-    0,
-    FALSE,
-    &SDDL_DEVOBJ_SYS_ALL_ADM_ALL,
-    &k_device_class,
-    &device_object
-  );
+  auto status = vm_callback_init();
+  if (NT_SUCCESS(status)) {
+    UNICODE_STRING device_path = RTL_CONSTANT_STRING(k_device_path);
+    PDEVICE_OBJECT device_object = nullptr;
+    status = IoCreateDeviceSecure(
+      driver_object,
+      0,
+      &device_path,
+      k_device_type,
+      0,
+      FALSE,
+      &SDDL_DEVOBJ_SYS_ALL_ADM_ALL,
+      &k_device_class,
+      &device_object
+    );
 
-  if (!NT_SUCCESS(status)) {
-    return status;
+    if (NT_SUCCESS(status)) {
+      driver_object->DriverUnload = driver_unload;
+
+      driver_object->MajorFunction[IRP_MJ_CREATE] = dispatch_irp;
+      driver_object->MajorFunction[IRP_MJ_CLOSE] = dispatch_irp;
+      driver_object->MajorFunction[IRP_MJ_DEVICE_CONTROL] = dispatch_irp;
+
+      device_object->Flags &= ~DO_DEVICE_INITIALIZING;
+
+      return status;
+    }
+
+    vm_callback_destroy();
   }
-
-  driver_object->DriverUnload = driver_unload;
-
-  driver_object->MajorFunction[IRP_MJ_CREATE] = dispatch_irp;
-  driver_object->MajorFunction[IRP_MJ_CLOSE] = dispatch_irp;
-  driver_object->MajorFunction[IRP_MJ_DEVICE_CONTROL] = dispatch_irp;
-
-  device_object->Flags &= ~DO_DEVICE_INITIALIZING;
 
   return status;
 }

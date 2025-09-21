@@ -27,6 +27,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="callbacks.cpp" />
     <ClCompile Include="driver.cpp" />
     <ClCompile Include="msrmrs.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
@@ -46,6 +47,7 @@
   <ItemGroup>
     <ClInclude Include="amx_loader.h" />
     <ClInclude Include="arch_detect.h" />
+    <ClInclude Include="callbacks.h" />
     <ClInclude Include="ioctl.h" />
     <ClInclude Include="kallocator.h" />
     <ClInclude Include="klist.h" />

@@ -50,6 +50,7 @@
 
 #define LITTLE_ENDIAN
 #include "amx_loader.h"
+#include "callbacks.h"
 #include "natives_impl.h"
 #include "signature.h"
 #include "public.h"
@@ -620,11 +621,6 @@ static NTSTATUS vm_destroy_internal(context* ctx) {
   return STATUS_SUCCESS;
 }
 
-NTSTATUS vm_callback_created(PVOID) { return STATUS_SUCCESS; }
-NTSTATUS vm_callback_precall(PVOID, UINT_PTR) { return STATUS_SUCCESS; }
-void vm_callback_postcall(PVOID) {}
-void vm_callback_destroy(PVOID) {}
-
 NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
   *ctx = nullptr;
 
@@ -652,7 +648,7 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
   }
 
   if (!NT_SUCCESS(status)) {
-    vm_callback_destroy(my_ctx);
+    vm_callback_destroyed(my_ctx);
     vm_destroy_internal(my_ctx);
     return status;
   }
@@ -740,7 +736,7 @@ NTSTATUS vm_destroy(PVOID ctx) {
         vm_callback_postcall(my_ctx);
       }
     }
-    vm_callback_destroy(my_ctx);
+    vm_callback_destroyed(my_ctx);
     return vm_destroy_internal(my_ctx);
   }
 

@@ -226,14 +226,14 @@ public:
   iterator erase(const_iterator pos);
   iterator erase(iterator first, iterator last);
   iterator erase(const_iterator first, const_iterator last);
-  void push_back(const T& value);
-  void push_back(T&& value);
+  iterator push_back(const T& value);
+  iterator push_back(T&& value);
   //template <class... Args>
   //reference emplace_back(Args&&... args);
-  void push_front(const T& value);
-  void push_front(T&& value);
+  iterator push_front(const T& value);
+  iterator push_front(T&& value);
   template <class... Args>
-  void emplace_front(Args&&... args);
+  iterator emplace_front(Args&&... args);
   //template <class... Args>
   //reference emplace_front(Args&&... args);
   //void resize(size_type count);
@@ -313,29 +313,29 @@ typename klist<T, Allocator>::iterator klist<T, Allocator>::erase(const_iterator
 }
 
 template <class T, class Allocator>
-void klist<T, Allocator>::push_back(const T& value) {
-  insert(end(), value);
+typename klist<T, Allocator>::iterator klist<T, Allocator>::push_back(const T& value) {
+  return insert(end(), value);
 }
 
 template <class T, class Allocator>
-void klist<T, Allocator>::push_back(T&& value) {
-  insert(end(), std::move(value));
+typename klist<T, Allocator>::iterator klist<T, Allocator>::push_back(T&& value) {
+  return insert(end(), std::move(value));
 }
 
 template <class T, class Allocator>
-void klist<T, Allocator>::push_front(const T& value) {
-  insert(begin(), value);
+typename klist<T, Allocator>::iterator klist<T, Allocator>::push_front(const T& value) {
+  return insert(begin(), value);
 }
 
 template <class T, class Allocator>
-void klist<T, Allocator>::push_front(T&& value) {
-  insert(begin(), std::move(value));
+typename klist<T, Allocator>::iterator klist<T, Allocator>::push_front(T&& value) {
+  return insert(begin(), std::move(value));
 }
 
 template <class T, class Allocator>
 template <class... Args>
-void klist<T, Allocator>::emplace_front(Args&&... args) {
-  emplace(begin(), std::forward<Args>(args)...);
+typename klist<T, Allocator>::iterator klist<T, Allocator>::emplace_front(Args&&... args) {
+  return emplace(begin(), std::forward<Args>(args)...);
 }
 
 template <class T, class Allocator>

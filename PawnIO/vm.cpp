@@ -513,6 +513,8 @@ void __cdecl operator delete(void*, size_t) {
 struct context {
   std::aligned_storage_t<sizeof(amx64_loader), alignof(amx64_loader)> loader_storage;
   amx64_loader* loader;
+  const uint8_t* original_buf;
+  size_t original_buf_size;
   FAST_MUTEX mutex;
 };
 
@@ -540,10 +542,22 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
   if (!NT_SUCCESS(status))
     return status;
 
+  // extra copy
+  const auto copy = (uint8_t*)ExAllocatePoolZero(NonPagedPoolNxCacheAligned, size, 'cpmA');
+  if (!copy)
+    return STATUS_NO_MEMORY;
+
+  memcpy(copy, buffer, size);
+
   // load
   const auto my_ctx = (context*)ExAllocatePoolZero(NonPagedPoolNxCacheAligned, sizeof(context), 'OIwP');
-  if (!my_ctx)
-    return STATUS_NO_MEMORY;
+  if (!my_ctx) {
+    status = STATUS_NO_MEMORY;
+    goto fail_copy;
+  }
+
+  my_ctx->original_buf = copy;
+  my_ctx->original_buf_size = size;
 
   const auto loader = new(&my_ctx->loader_storage) amx64_loader();
   my_ctx->loader = loader;
@@ -587,6 +601,8 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
 fail_destruct:
   loader->~amx64_loader();
   ExFreePool(my_ctx);
+fail_copy:
+  ExFreePool(copy);
   return status;
 }
 

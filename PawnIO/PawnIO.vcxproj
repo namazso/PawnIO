@@ -96,7 +96,6 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/kernel /utf-8 /INTEGRITYCHECK /d1nodatetime /Brepro %(AdditionalOptions)</AdditionalOptions>
       <GuardEHContMetadata>true</GuardEHContMetadata>
-      <ControlFlowGuard>false</ControlFlowGuard>
       <PrecompiledHeader>Use</PrecompiledHeader>
     </ClCompile>
     <Link>

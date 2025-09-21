@@ -329,7 +329,7 @@ cell get_proc_address(const char* name) {
   return (cell)MmGetSystemRoutineAddress(&ustr);
 }
 
-cell invoke(
+ __declspec(guard(nocf)) cell invoke(
   cell address,
   cell& retval,
   cell a0,

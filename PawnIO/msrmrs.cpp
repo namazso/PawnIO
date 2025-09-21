@@ -84,10 +84,10 @@ __declspec(allocate(".msrmrs")) constexpr auto k_msrfn = generate_msrmrs<false>(
 
 // convenience functions where you only need to pass the assembled instruction
 
-unsigned arm_mrs(unsigned instruction) {
+__declspec(guard(nocf)) unsigned arm_mrs(unsigned instruction) {
   return ((uint32_t(*)())&k_mrsfn[(instruction >> 5) & 0x7FFF])();
 }
 
-void arm_msr(unsigned instruction, unsigned v) {
+ __declspec(guard(nocf)) void arm_msr(unsigned instruction, unsigned v) {
   ((void(*)(uint32_t))&k_msrfn[(instruction >> 5) & 0x7FFF])(v);
 }

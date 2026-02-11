@@ -1,5 +1,5 @@
 // PawnIO - Input-output driver
-// Copyright (C) 2023  namazso <admin@namazso.eu>
+// Copyright (C) 2026  namazso <admin@namazso.eu>
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -46,21 +46,7 @@
 
 #pragma once
 
-#define INITGUID
+using sha256_buf = std::array<uint8_t, 32>;
 
-#include <ntddk.h>
-
-#include <intrin.h>
-#include <bcrypt.h>
-#include <malloc.h>
-
-#include <cstdint>
-#include <cstdarg>
-
-#include <algorithm>
-#include <tuple>
-#include <array>
-#include <type_traits>
-#include <utility>
-#include <bit>
-#include <shared_mutex>
+NTSTATUS calculate_sha256(const void* data, size_t size, sha256_buf* sha256);
+NTSTATUS verify_sig(const sha256_buf& sha256, const uint8_t* sig, size_t sig_len, const uint8_t* pubkey, size_t pubkey_len);

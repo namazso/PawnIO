@@ -1,0 +1,45 @@
+[Version]
+Signature	= "$WINDOWS NT$"
+Class		= SoftwareDevice
+ClassGuid	= {62f9c741-b25a-46ce-b54c-9bccce08b6f2}
+Provider	= "@PAWNIO_AUTHOR@"
+CatalogFile	= @PAWNIO_NAME@.cat
+PnpLockdown	= 1
+DriverVer   = @PAWNIO_DATE@,@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@.0
+
+[Manufacturer]
+"@PAWNIO_AUTHOR@" = Standard,@INF_ARCH@.10.0...17763
+
+[Standard.@INF_ARCH@.10.0...17763]
+"@PAWNIO_NAME@" = @PAWNIO_NAME@_Device, Root\@PAWNIO_NAME@
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[SourceDisksNames]
+1 = "@PAWNIO_NAME@ Installation Disk",,,""
+
+[SourceDisksFiles]
+@PAWNIO_NAME@.sys = 1,,
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[@PAWNIO_NAME@_Device.NT]
+CopyFiles = Drivers_Dir
+
+[Drivers_Dir]
+@PAWNIO_NAME@.sys
+
+;-------------- Service installation
+[@PAWNIO_NAME@_Device.NT.Services]
+AddService = @PAWNIO_NAME@,2,@PAWNIO_NAME@_Service_Inst
+
+; -------------- Driver install sections
+[@PAWNIO_NAME@_Service_Inst]
+DisplayName    = "@PAWNIO_NAME@ Service"
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %13%\@PAWNIO_NAME@.sys

@@ -1,5 +1,5 @@
 // PawnIO - Input-output driver
-// Copyright (C) 2023  namazso <admin@namazso.eu>
+// Copyright (C) 2026  namazso <admin@namazso.eu>
 // 
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -44,16 +44,16 @@
 // makes it possible to release a modified version which carries forward this
 // exception.
 
-#include "stdafx.h"
-
 #include "vm.h"
 
 #define LITTLE_ENDIAN
+
+#include <pawnio_km.h>
+
 #include "amx_loader.h"
 #include "callbacks.h"
 #include "natives_impl.h"
 #include "signature.h"
-#include "public.h"
 
 using amx64 = amx::amx<uint64_t, amx::memory_manager_harvard<amx::memory_backing_contignous_buffer, amx::memory_backing_paged_buffers<5>>>;
 using amx64_loader = amx::loader<amx64>;

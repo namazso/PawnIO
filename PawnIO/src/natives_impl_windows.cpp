@@ -1,5 +1,5 @@
 // PawnIO - Input-output driver
-// Copyright (C) 2023  namazso <admin@namazso.eu>
+// Copyright (C) 2026  namazso <admin@namazso.eu>
 // 
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -43,8 +43,6 @@
 // to release a modified version without this exception; this exception also
 // makes it possible to release a modified version which carries forward this
 // exception.
-
-#include "stdafx.h"
 
 #include "natives_impl.h"
 

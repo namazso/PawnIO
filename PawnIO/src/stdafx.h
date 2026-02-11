@@ -1,5 +1,5 @@
 // PawnIO - Input-output driver
-// Copyright (C) 2023  namazso <admin@namazso.eu>
+// Copyright (C) 2026  namazso <admin@namazso.eu>
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -46,12 +46,20 @@
 
 #pragma once
 
-#include "public.h"
+#define INITGUID
 
-NTSTATUS vm_callback_init();
-void vm_callback_destroy();
+#include <ntddk.h>
+#include <bcrypt.h>
+#include <intrin.h>
+#include <malloc.h>
 
-NTSTATUS vm_callback_created(PVOID ctx);
-NTSTATUS vm_callback_precall(PVOID ctx, UINT_PTR cip);
-void vm_callback_postcall(PVOID ctx);
-void vm_callback_destroyed(PVOID ctx);
+#include <cstdint>
+#include <cstdarg>
+
+#include <algorithm>
+#include <tuple>
+#include <array>
+#include <type_traits>
+#include <utility>
+#include <bit>
+#include <shared_mutex>

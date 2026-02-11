@@ -1,5 +1,5 @@
 // PawnIO - Input-output driver
-// Copyright (C) 2023  namazso <admin@namazso.eu>
+// Copyright (C) 2026  namazso <admin@namazso.eu>
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -46,76 +46,12 @@
 
 #pragma once
 
-template <typename T, POOL_TYPE PoolType = NonPagedPoolNx>
-class kallocator {
-  static constexpr ULONG k_tag = 'olAk';
+#include <pawnio_km.h>
 
-public:
-  // Standard allocator typedefs
-  using value_type = T;
-  using pointer = T*;
-  using const_pointer = const T*;
-  using reference = T&;
-  using const_reference = const T&;
-  using size_type = size_t;
-  using difference_type = ptrdiff_t;
-  using propagate_on_container_move_assignment = std::true_type;
-  using is_always_equal = std::true_type;
+NTSTATUS vm_callback_init();
+void vm_callback_destroy();
 
-  FORCEINLINE constexpr kallocator() noexcept = default;
-  FORCEINLINE constexpr kallocator(const kallocator&) noexcept = default;
-  FORCEINLINE constexpr kallocator(kallocator&&) noexcept = default;
-  FORCEINLINE constexpr kallocator& operator=(const kallocator&) noexcept = default;
-  FORCEINLINE constexpr kallocator& operator=(kallocator&&) noexcept = default;
-  FORCEINLINE ~kallocator() = default;
-
-  // Rebind for allocating other types
-  template <typename U>
-  struct rebind {
-    using other = kallocator<U, PoolType>;
-  };
-
-  // Copy constructor
-  template <typename U>
-  FORCEINLINE kallocator(const kallocator<U, PoolType>&) noexcept {}
-
-  // Required allocator functions
-  FORCEINLINE pointer allocate(size_type n) {
-    // Allocate n objects of type T from kernel pool
-    const size_t bytes = n * sizeof(T);
-
-    void* p = ExAllocatePoolZero(PoolType, bytes, k_tag);
-    /*if (!p) {
-      KeBugCheckEx(DRIVER_OVERRAN_STACK_BUFFER, 0, 0, 0, 0);
-    }*/
-    return static_cast<pointer>(p);
-  }
-
-  FORCEINLINE void deallocate(pointer p, size_type) noexcept {
-    if (p) {
-      ExFreePoolWithTag(p, k_tag);
-    }
-  }
-
-  // Construction/destruction of objects
-  template <typename U, typename... Args>
-  FORCEINLINE void construct(U* p, Args&&... args) {
-    ::new (static_cast<void*>(p)) U(std::forward<Args>(args)...);
-  }
-
-  template <typename U>
-  FORCEINLINE void destroy(U* p) {
-    p->~U();
-  }
-};
-
-// Equality comparison operators
-template <typename T1, typename T2, POOL_TYPE PoolType>
-FORCEINLINE bool operator==(const kallocator<T1, PoolType>&, const kallocator<T2, PoolType>&) noexcept {
-  return true;
-}
-
-template <typename T1, typename T2, POOL_TYPE PoolType>
-FORCEINLINE bool operator!=(const kallocator<T1, PoolType>&, const kallocator<T2, PoolType>&) noexcept {
-  return false;
-}
+NTSTATUS vm_callback_created(PVOID ctx);
+NTSTATUS vm_callback_precall(PVOID ctx, UINT_PTR cip);
+void vm_callback_postcall(PVOID ctx);
+void vm_callback_destroyed(PVOID ctx);

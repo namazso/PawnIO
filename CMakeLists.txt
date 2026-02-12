@@ -50,7 +50,9 @@ project(PawnIO LANGUAGES CXX ASM_MASM VERSION 2.1.0)
 set(PAWNIO_NAME "PawnIO" CACHE STRING "The name of the driver")
 set(PAWNIO_NAME_FULL "PawnIO Official Build" CACHE STRING "The full name of the driver, shown in inf and file properties")
 set(PAWNIO_AUTHOR "namazso" CACHE STRING "The author of the driver, shown in inf and file properties")
-set(PAWNIO_DATE "02/01/2026" CACHE STRING "The date of the driver, used in inf file")
+set(PAWNIO_DATE "02/02/2026" CACHE STRING "The date of the driver, used in inf file")
+
+option(PAWNIO_UNRESTRICTED "Whether to build an unrestricted version of the driver" OFF)
 
 set(SIGN_SCRIPT "" CACHE STRING "Signing script, called like <script> <input> <output>")
 
@@ -67,7 +69,33 @@ add_compile_definitions(
         PAWNIO_PATCH=${PROJECT_VERSION_PATCH}
 )
 
+add_compile_options(
+        /W4
+        /WX
+        /utf-8
+        /INTEGRITYCHECK
+        /d1nodatetime
+        /Brepro
+        /Zi
+)
+
+add_link_options(
+        /DEBUG
+        /OPT:REF
+        /OPT:ICF=10
+        /EMITPOGOPHASEINFO
+        /INTEGRITYCHECK
+        /FILEALIGN:0x1000
+        $<$<STREQUAL:"${WDK_PLATFORM}","x64">:/CETCOMPAT>
+        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/BREPRO>
+        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/NOVCFEATURE>
+        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/NOCOFFGRPINFO>
+        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/PDBALTPATH:%_PDB%>
+)
+
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "ProgramDatabase")
+
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 string(REGEX REPLACE "(^| )[/-]GR( |$)" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
@@ -92,3 +120,27 @@ target_include_directories(PawnPP INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/PawnPP)
 
 add_subdirectory(PawnIO)
 
+# PawnIOLib
+
+add_library(PawnIOLib SHARED
+        PawnIOLib/PawnIOLib.cpp
+        PawnIOLib/resource.rc
+)
+
+target_link_libraries(PawnIOLib PRIVATE ntdll.lib PawnIO)
+
+target_link_options(PawnIOLib PRIVATE
+        /ENTRY:DllEntry
+)
+
+target_include_directories(PawnIOLib PUBLIC PawnIOLib/include)
+
+# PawnIOUtil
+
+add_executable(PawnIOUtil
+        PawnIOUtil/PawnIOUtil.cpp
+        PawnIOUtil/signature.cpp
+        PawnIOUtil/resource.rc
+)
+
+target_link_libraries(PawnIOUtil PRIVATE PawnIOLib)

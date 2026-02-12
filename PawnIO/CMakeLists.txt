@@ -10,6 +10,8 @@ wdk_add_driver(PawnIO
         src/resource.rc
 )
 
+set_target_properties(PawnIO PROPERTIES ENABLE_EXPORTS ON)
+
 target_include_directories(PawnIO PUBLIC include)
 
 target_link_libraries(PawnIO PawnPP WDK::KSECDD)
@@ -39,6 +41,10 @@ target_link_options(PawnIO PRIVATE
         $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/NOCOFFGRPINFO>
         $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/PDBALTPATH:%_PDB%>
 )
+
+if (PAWNIO_UNRESTRICTED)
+    target_compile_definitions(PawnIO PRIVATE PAWNIO_UNRESTRICTED)
+endif ()
 
 set_target_properties(PawnIO PROPERTIES OUTPUT_NAME "${PAWNIO_NAME}_unsigned")
 

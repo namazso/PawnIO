@@ -73,7 +73,6 @@ add_compile_options(
         /W4
         /WX
         /utf-8
-        /INTEGRITYCHECK
         /d1nodatetime
         /Brepro
         /Zi
@@ -84,7 +83,6 @@ add_link_options(
         /OPT:REF
         /OPT:ICF=10
         /EMITPOGOPHASEINFO
-        /INTEGRITYCHECK
         /FILEALIGN:0x1000
         $<$<STREQUAL:"${WDK_PLATFORM}","x64">:/CETCOMPAT>
         $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/BREPRO>

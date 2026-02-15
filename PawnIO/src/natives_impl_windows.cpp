@@ -95,7 +95,7 @@ static cell physical_read(cell pa, cell& v) {
     v = (cell)*(T*)va;
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -110,7 +110,7 @@ static cell physical_write(cell pa, cell v) {
     *(T*)va = (T)v;
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -140,7 +140,7 @@ static cell virtual_read(cell va, cell& v) {
     v = (cell)*(T*)va;
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -150,7 +150,7 @@ static cell virtual_write(cell va, cell v) {
     *(T*)va = (T)v;
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -176,7 +176,7 @@ static cell virtual_cmpxchg(cell va, cell exchange, cell comparand) {
     }
     return (cell)(scell)(success ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL);
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -352,7 +352,7 @@ cell get_proc_address(const char* name) {
     retval = p(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15);
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -388,7 +388,7 @@ cell msr_read(cell msr, cell& value) {
     value = (cell)arm_mrs((ULONG)msr);
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -401,7 +401,7 @@ cell msr_write(cell msr, cell value) {
     arm_msr((ULONG)msr, (ULONG)value);
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -441,7 +441,7 @@ cell msr_read(cell msr, cell& value) {
     value = __readmsr((ULONG)msr);
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -453,7 +453,7 @@ cell msr_write(cell msr, cell value) {
     __writemsr((ULONG)msr, value);
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -482,7 +482,7 @@ cell xcr_read(cell xcr, cell& value) {
     value = _xgetbv((ULONG)xcr);
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -491,7 +491,7 @@ cell xcr_write(cell xcr, cell value) {
     _xsetbv((ULONG)xcr, value);
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 
@@ -504,7 +504,7 @@ cell readpmc(cell pmc, cell& value) {
     value = __readpmc((ULONG)pmc);
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return (cell)(scell)GetExceptionCode();
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
   }
 }
 

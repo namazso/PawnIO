@@ -32,6 +32,12 @@ CopyFiles = Drivers_Dir
 [Drivers_Dir]
 @PAWNIO_NAME@.sys
 
+[@PAWNIO_NAME@_Device.NT.HW]
+AddReg = Custom_Security
+
+[Custom_Security]
+HKR,,Security,,"D:P(A;;GA;;;SY)(A;;GA;;;BA)"
+
 ;-------------- Service installation
 [@PAWNIO_NAME@_Device.NT.Services]
 AddService = @PAWNIO_NAME@,2,@PAWNIO_NAME@_Service_Inst

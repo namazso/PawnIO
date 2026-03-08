@@ -48,6 +48,7 @@
 
 constexpr static ULONG k_device_type = 41394;
 constexpr static wchar_t k_device_path[] = L"\\Device\\" PAWNIO_NAME;
+constexpr static wchar_t k_device_dos_path_DEPRECATED[] = L"\\DosDevices\\" PAWNIO_NAME;
 
 enum : ULONG {
   //IOCTL_PIO_GET_REFCOUNT = CTL_CODE(k_device_type, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS),

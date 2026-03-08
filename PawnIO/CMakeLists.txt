@@ -74,17 +74,29 @@ elseif (WDK_PLATFORM STREQUAL "arm64")
     set(INF_ARCH "ntarm64")
 endif ()
 
+set(DRIVER_DIR "${CMAKE_CURRENT_BINARY_DIR}/driver")
+file(MAKE_DIRECTORY "${DRIVER_DIR}")
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/PawnIO.inf.in ${CMAKE_CURRENT_BINARY_DIR}/PawnIO.inf.in @ONLY)
-file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.inf INPUT ${CMAKE_CURRENT_BINARY_DIR}/PawnIO.inf.in)
+file(GENERATE OUTPUT ${DRIVER_DIR}/${PAWNIO_NAME}.inf INPUT ${CMAKE_CURRENT_BINARY_DIR}/PawnIO.inf.in)
 
 add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.cat
+        OUTPUT ${DRIVER_DIR}/${PAWNIO_NAME}.sys
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.sys"
+        "${DRIVER_DIR}/${PAWNIO_NAME}.sys"
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.sys"
+        VERBATIM
+)
+
+add_custom_command(
+        OUTPUT ${DRIVER_DIR}/${PAWNIO_NAME}.cat
         COMMAND "${INF2CAT}"
-        "/driver:${CMAKE_CURRENT_BINARY_DIR}"
+        "/driver:${DRIVER_DIR}"
         "/os:10_RS5_${WDK_PLATFORM},ServerRS5_${WDK_PLATFORM},10_GE_${WDK_PLATFORM},Server2025_${WDK_PLATFORM}"
         "/verbose"
         "/pageHashes"
-        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.sys" "${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.inf"
+        DEPENDS "${DRIVER_DIR}/${PAWNIO_NAME}.sys" "${DRIVER_DIR}/${PAWNIO_NAME}.inf"
 )
 
 file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cab.ddf CONTENT "
@@ -98,15 +110,15 @@ file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cab.ddf CONTENT "
 .Set CompressionType=MSZIP
 .Set Cabinet=on
 .Set Compress=on
-${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.sys driver/${PAWNIO_NAME}.sys
-${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.inf driver/${PAWNIO_NAME}.inf
-${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.cat driver/${PAWNIO_NAME}.cat
+${DRIVER_DIR}/${PAWNIO_NAME}.sys driver/${PAWNIO_NAME}.sys
+${DRIVER_DIR}/${PAWNIO_NAME}.inf driver/${PAWNIO_NAME}.inf
+${DRIVER_DIR}/${PAWNIO_NAME}.cat driver/${PAWNIO_NAME}.cat
 ")
 
 add_custom_command(
         OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.cab
         COMMAND "${MAKECAB}" /V0 /D "DiskDirectory1=${CMAKE_CURRENT_BINARY_DIR}" /D "CabinetNameTemplate=${PAWNIO_NAME}.cab" /F "${CMAKE_CURRENT_BINARY_DIR}/cab.ddf"
-        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.sys" "${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.inf" "${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.cat"
+        DEPENDS "${DRIVER_DIR}/${PAWNIO_NAME}.sys" "${DRIVER_DIR}/${PAWNIO_NAME}.inf" "${DRIVER_DIR}/${PAWNIO_NAME}.cat"
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
         COMMENT "Creating CAB package..."
         VERBATIM

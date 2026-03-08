@@ -46,6 +46,26 @@
 
 #pragma once
 
+#define DECLSPEC_DEPRECATED_DDK
+#define _WIN32_WINNT _WIN32_WINNT_WIN10
+#define NTDDI_VERSION NTDDI_WIN10_RS5
+#include <sdkddkver.h>
+
+#if _MSC_VER >= 1944
+#define _MSVC_STL_HARDENING 0
+#define _MSVC_STL_DOOM_FUNCTION(expr)
+#else
+#define _CONTAINER_DEBUG_LEVEL 0
+#define _ITERATOR_DEBUG_LEVEL 0
+#define _STL_CRT_SECURE_INVALID_PARAMETER(expr)
+#endif
+
+#define _CRT_SECURE_INVALID_PARAMETER(expr)
+
+#define _INVALID_MEMORY_ORDER
+
+#define assert NT_ASSERT
+
 #define INITGUID
 
 #include <ntddk.h>

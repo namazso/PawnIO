@@ -417,6 +417,53 @@ amx::error get_public(amx64* amx, amx64_loader* loader, void* user, cell argc, c
   return amx::error::success;
 }
 
+static cell get_native_index(const char* name);
+static amx64_loader::native_fn get_native_ptr(cell index);
+
+amx::error get_native(amx64* amx, amx64_loader* loader, void* user, cell argc, cell argv, cell& retval) {
+  UNREFERENCED_PARAMETER(user);
+
+  retval = 0;
+
+  char func_name[33]{};
+
+  if (argc == 0)
+    return amx::error::invalid_operand;
+  const auto pvfmt = amx->data_v2p(argv);
+  if (!pvfmt)
+    return amx::error::access_violation;
+  const auto vfmt = *pvfmt;
+
+  const auto res = amx_strcpy(func_name, std::size(func_name), amx, vfmt);
+  if (res == 0)
+    return amx::error::invalid_operand;
+  if (res == -1)
+    return amx::error::access_violation;
+
+  retval = get_native_index(func_name);
+
+  return amx::error::success;
+}
+
+amx::error call_native(amx64* amx, amx64_loader* loader, void* user, cell argc, cell argv, cell& retval) {
+  UNREFERENCED_PARAMETER(user);
+
+  retval = 0;
+
+  if (argc == 0)
+    return amx::error::invalid_operand;
+  const auto pidx = amx->data_v2p(argv);
+  if (!pidx)
+    return amx::error::access_violation;
+  const auto idx = *pidx;
+
+  const auto fn = get_native_ptr(idx);
+  if (!fn)
+    return amx::error::invalid_operand;
+
+  return fn(amx, loader, user, argc - 1, argv + sizeof(cell), retval);
+}
+
 class wrapped_fast_mutex {
   FAST_MUTEX _mutex{};
 
@@ -551,9 +598,12 @@ const static amx64_loader::native_arg NATIVES[] =
   {"get_public", &get_public},
   {"callback_alloc", &to_amx_callback_alloc_wrap},
   {"callback_free", &to_amx_callback_free_wrap},
+  {"get_native", &get_native},
+  {"call_native", &call_native},
 
 #define DEFINE_NATIVE(name) { #name, &native_callback_wrapper<&name> }
 
+  DEFINE_NATIVE(get_version),
   DEFINE_NATIVE(get_arch),
 
   DEFINE_NATIVE(cpu_count),
@@ -679,6 +729,19 @@ const static amx64_loader::native_arg NATIVES[] =
 
 #undef DEFINE_NATIVE
 };
+
+static cell get_native_index(const char* name) {
+  for (size_t i = 0; i < std::size(NATIVES); ++i)
+    if (strcmp(name, NATIVES[i].name) == 0)
+      return (cell)i;
+  return (cell)(scell)-1;
+}
+
+static amx64_loader::native_fn get_native_ptr(cell index) {
+  if (index >= std::size(NATIVES))
+    return nullptr;
+  return NATIVES[index].callback;
+}
 
 void __CRTDECL operator delete(void*, size_t) noexcept {
   __debugbreak();

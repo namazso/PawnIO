@@ -53,6 +53,8 @@ using scell = long long;
 
 static_assert(sizeof(cell) == sizeof(void*));
 
+cell get_version();
+
 cell get_arch();
 
 cell cpu_count();
@@ -156,10 +158,10 @@ cell slwpcb();
 void cpuid(cell leaf, cell subleaf, std::array<cell, 4>& out);
 
 cell cr_read(cell cr);
-void cr_write(cell cr, cell value);
+cell cr_write(cell cr, cell value);
 
 cell dr_read(cell dr);
-void dr_write(cell dr, cell value);
+cell dr_write(cell dr, cell value);
 
 cell xcr_read(cell xcr, cell& value);
 cell xcr_write(cell xcr, cell value);

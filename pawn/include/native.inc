@@ -40,8 +40,30 @@ native VAProc:callback_alloc(AmxCip:cip);
 /// @param pfn Virtual address of the callback function to free
 native Void:callback_free(VAProc:pfn);
 
+#define INVALID_NATIVE_INDEX (NativeIndex:(-1))
+
+/// Get the address of a native function.
+///
+/// @param name Function name
+/// @return Index of the native function
+/// @retval INVALID_NATIVE_INDEX Native not found
+native NativeIndex:get_native(const name[]);
+
+/// Call a native function by index.
+///
+/// @param index Index of the native function to call
+native call_native(NativeIndex:index, ...);
+
+/// Get the current version of PawnIO.
+///
+/// @return Version in ((major << 16) | (minor << 8) | patch) format.
+native get_version();
+
 const CPUArch: {
+    /// x86-64 architecture
     ARCH_X64 = 1,
+
+    /// ARM64 architecture
     ARCH_A64 = 2
 };
 

@@ -488,7 +488,8 @@ native cr_read(cr);
 ///
 /// @param cr Control register number to write
 /// @param value Value to write
-native Void:cr_write(cr, value);
+/// @return An NTSTATUS
+native NTSTATUS:cr_write(cr, value);
 
 /// Read debug register.
 ///
@@ -500,7 +501,8 @@ native dr_read(dr);
 ///
 /// @param dr Debug register number to write
 /// @param value Value to write
-native Void:dr_write(dr, value);
+/// @return An NTSTATUS
+native NTSTATUS:dr_write(dr, value);
 
 /// Read extended control register.
 ///

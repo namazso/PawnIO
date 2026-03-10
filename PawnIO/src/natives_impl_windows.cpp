@@ -471,10 +471,24 @@ static cell crdr_wrap(cell v, cell idx, bool is_cr, bool is_wr) {
 }
 
 cell cr_read(cell cr) { return crdr_wrap(0, cr, true, false); }
-void cr_write(cell cr, cell value) { crdr_wrap(value, cr, true, true); }
+cell cr_write(cell cr, cell value) {
+  __try {
+    crdr_wrap(value, cr, true, true);
+    return (cell)(scell)STATUS_SUCCESS;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
+  }
+}
 
 cell dr_read(cell dr) { return crdr_wrap(0, dr, false, false); }
-void dr_write(cell dr, cell value) { crdr_wrap(value, dr, false, true); }
+cell dr_write(cell dr, cell value) {
+  __try {
+    crdr_wrap(value, dr, false, true);
+    return (cell)(scell)STATUS_SUCCESS;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return (cell)(scell)(NTSTATUS)GetExceptionCode();
+  }
+}
 
 cell xcr_read(cell xcr, cell& value) {
   value = 0;

@@ -297,6 +297,26 @@ DEFINE_IOCTL_SIZED(ioctl_test, 0, 0) {
         return STATUS_UNSUCCESSFUL;
     }
 
+    new version = get_version();
+
+    new NativeIndex:idx = get_native(''__nonexistent_native'');
+    if (idx != INVALID_NATIVE_INDEX) {
+        debug_print(''get_native should have returned INVALID_NATIVE_INDEX for a nonexistent native!\n'');
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    idx = get_native(''get_version'');
+    if (idx == INVALID_NATIVE_INDEX) {
+        debug_print(''Failed to get native index for get_version!\n'');
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    new version2 = call_native(idx);
+    if (version != version2) {
+        debug_print(''Version returned by get_version does not match expected version!\n'');
+        return STATUS_UNSUCCESSFUL;
+    }
+
     if (get_arch() != ARCH_X64) {
         // We actually should never get here due to our imports
         debug_print(''This test is only supported on x64!\n'');
@@ -388,9 +408,23 @@ DEFINE_IOCTL_SIZED(ioctl_test, 0, 0) {
         return STATUS_UNSUCCESSFUL;
     }
 
+    // Disable protected mode while paging is enabled, this is invalid
+    status = cr_write(0, cr0 & ~1); 
+    if (status != STATUS_PRIVILEGED_INSTRUCTION) {
+        debug_print(''Writing to CR0 to disable protected mode should have caused GP!\n'');
+        return STATUS_UNSUCCESSFUL;
+    }
+
     new dr6 = dr_read(6);
     if ((dr6 & 0x7F0) != 0x7F0) {
         debug_print(''DR6 should have bits 4-11 set!\n'');
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // Write 1 to high bits, this is not allowed
+    status = dr_write(6, ~0);
+    if (status != STATUS_PRIVILEGED_INSTRUCTION) {
+        debug_print(''Writing to DR6 with invalid bits set should have caused GP!\n'');
         return STATUS_UNSUCCESSFUL;
     }
 

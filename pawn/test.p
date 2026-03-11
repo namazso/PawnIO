@@ -77,6 +77,33 @@ get_physical_address(VA:va) {
     return pa;
 }
 
+VA:allocate_contiguous_memory(size) {
+    static VAProc:pMmAllocateContiguousMemory = VAProc:NULL;
+    if (pMmAllocateContiguousMemory == VAProc:NULL) {
+        pMmAllocateContiguousMemory = get_proc_address(''MmAllocateContiguousMemory'');
+        if (pMmAllocateContiguousMemory == VAProc:NULL) {
+            debug_print(''Failed to get MmAllocateContiguousMemory address!\n'');
+            return NULL;
+        }
+    }
+    new va;
+    invoke(pMmAllocateContiguousMemory, va, size, 0xFFFFFFFFFFFFFFFF);
+    return VA:va;
+}
+
+free_contiguous_memory(VA:va) {
+    static VAProc:pMmFreeContiguousMemory = VAProc:NULL;
+    if (pMmFreeContiguousMemory == VAProc:NULL) {
+        pMmFreeContiguousMemory = get_proc_address(''MmFreeContiguousMemory'');
+        if (pMmFreeContiguousMemory == VAProc:NULL) {
+            debug_print(''Failed to get MmFreeContiguousMemory address!\n'');
+            return;
+        }
+    }
+    new retval;
+    invoke(pMmFreeContiguousMemory, retval, _:va);
+}
+
 NTSTATUS:do_memory_tests(VA:alloc) {
     new alloc_pa = get_physical_address(alloc);
     if (alloc_pa == 0) {
@@ -132,7 +159,7 @@ NTSTATUS:do_memory_tests(VA:alloc) {
         return STATUS_UNSUCCESSFUL;
     }
 
-    /*status = physical_read_qword(alloc_pa, temp);
+    status = physical_read_qword(alloc_pa, temp);
     if (!NT_SUCCESS(status)) {
         debug_print(''Failed to read QWORD from physical memory: %x\n'', _:status);
         return status;
@@ -167,7 +194,7 @@ NTSTATUS:do_memory_tests(VA:alloc) {
     if (temp != 0x88) {
         debug_print(''Data read from physical memory does not match data written!\n'');
         return STATUS_UNSUCCESSFUL;
-    }*/
+    }
 
     virtual_write_qword(alloc, 0x1122334455667788);
     status = virtual_cmpxchg_qword2(alloc, 0x8877665544332211, 0x1122334455667788);
@@ -367,9 +394,15 @@ DEFINE_IOCTL_SIZED(ioctl_test, 0, 0) {
         debug_print(''Failed to allocate memory!\n'');
         return STATUS_NO_MEMORY;
     }
-
-    status = do_memory_tests(alloc);
     virtual_free(alloc);
+
+    alloc = allocate_contiguous_memory(0x1000);
+    if (alloc == NULL) {
+        debug_print(''Failed to allocate contiguous memory!\n'');
+        return STATUS_NO_MEMORY;
+    }
+    status = do_memory_tests(alloc);
+    free_contiguous_memory(alloc);
 
     if (!NT_SUCCESS(status)) {
         return status;

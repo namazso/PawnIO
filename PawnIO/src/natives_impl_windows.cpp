@@ -72,15 +72,13 @@ cell cpu_set_affinity(cell which, std::array<cell, 2>& old) {
   KeSetSystemGroupAffinityThread(&ga, &old_ga);
   static_assert(sizeof(old_ga) == sizeof(cell[2]), "!!!");
   memcpy(old.data(), &old_ga, sizeof(old_ga));
-  return (cell)(scell)(old_ga.Group == 0 && old_ga.Mask == 0 ? STATUS_UNSUCCESSFUL : STATUS_SUCCESS);
+  return (cell)(scell)STATUS_SUCCESS;
 }
 
 cell cpu_restore_affinity(std::array<cell, 2> old) {
   GROUP_AFFINITY ga{};
   static_assert(sizeof(ga) == sizeof(cell[2]), "!!!");
   memcpy(&ga, old.data(), sizeof(ga));
-  if (ga.Group == 0 && ga.Mask == 0)
-    return (cell)(scell)STATUS_UNSUCCESSFUL; // some idiot passed in the output of a failed cpu_set_affinity
   KeRevertToUserGroupAffinityThread(&ga);
   return (cell)(scell)STATUS_SUCCESS;
 }

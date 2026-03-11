@@ -330,7 +330,7 @@ DEFINE_IOCTL_SIZED(ioctl_test, 0, 0) {
 
     new NTSTATUS:status = STATUS_SUCCESS;
 
-    /*new old_affinity[2];
+    new old_affinity[2];
     status = cpu_set_affinity(0, old_affinity);
     if (!NT_SUCCESS(status)) {
         debug_print(''cpu_set_affinity failed with %x!\n'', _:status);
@@ -340,7 +340,7 @@ DEFINE_IOCTL_SIZED(ioctl_test, 0, 0) {
     if (!NT_SUCCESS(status)) {
         debug_print(''cpu_restore_affinity failed with %x!\n'', _:status);
         return status;
-    }*/
+    }
 
     new efer;
     interrupts_disable();

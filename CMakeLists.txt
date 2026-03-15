@@ -45,12 +45,12 @@
 # exception.
 
 cmake_minimum_required(VERSION 3.25)
-project(PawnIO LANGUAGES CXX ASM_MASM VERSION 2.1.0)
+project(PawnIO LANGUAGES CXX ASM_MASM VERSION 2.2.0)
 
 set(PAWNIO_NAME "PawnIO" CACHE STRING "The name of the driver")
 set(PAWNIO_NAME_FULL "PawnIO Official Build" CACHE STRING "The full name of the driver, shown in inf and file properties")
 set(PAWNIO_AUTHOR "namazso" CACHE STRING "The author of the driver, shown in inf and file properties")
-set(PAWNIO_DATE "02/02/2026" CACHE STRING "The date of the driver, used in inf file")
+set(PAWNIO_DATE "03/11/2026" CACHE STRING "The date of the driver, used in inf file")
 
 option(PAWNIO_UNRESTRICTED "Whether to build an unrestricted version of the driver" OFF)
 

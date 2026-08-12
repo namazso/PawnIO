@@ -46,6 +46,10 @@
 
 #pragma once
 
+#ifndef AMX_ASSERT
+#define AMX_ASSERT(cond) ((cond) ? (void)0 : __fastfail(FAST_FAIL_FATAL_APP_EXIT))
+#endif
+
 #include <amx.h>
 
 namespace amx {
@@ -57,7 +61,8 @@ namespace amx {
     feature_not_supported,
     wrong_cell_size,
     native_not_resolved,
-    unknown
+    unknown,
+    out_of_memory
   };
 
   namespace detail {
@@ -101,18 +106,15 @@ namespace amx {
       size_t entry_size,
       Fn fn = {}
     ) {
+      if (begin_offset > buf_size || end_offset > buf_size)
+        return false;
+      if (begin_offset > end_offset)
+        return false;
+      const auto size = end_offset - begin_offset;
+      if (size % entry_size != 0)
+        return false;
+
       const auto begin = buf + begin_offset;
-      const auto end = buf + end_offset;
-      const auto size = (size_t)(end - begin);
-      const auto buf_end = buf + buf_size;
-
-      if (begin < buf || begin > buf_end)
-        return false;
-      if (end < buf || end > buf_end)
-        return false;
-      if (begin > end || size % entry_size != 0)
-        return false;
-
       for (size_t i = 0; i < size / entry_size; ++i)
         if (!fn(begin + i * entry_size))
           return false;
@@ -174,6 +176,7 @@ namespace amx {
       flag_debug = 1 << 1,
       flag_nochecks = 1 << 2,
       flag_sleep = 1 << 3,
+      flag_crypt = 1 << 4,
       flag_dseg_init = 1 << 5,
     };
 
@@ -217,6 +220,9 @@ namespace amx {
     size_t _pubvars_count{};
 
     cell _main{};
+    cell _code_base{};
+    cell _data_base{};
+    bool _mapped{};
 
     void* _alloc{};
 
@@ -267,14 +273,44 @@ namespace amx {
       return ((loader*)user_data)->amx_callback(index, stk, pri);
     }
 
+    static loader_error check_code_is_core(const uint8_t* code, size_t count) {
+      constexpr static uint8_t operand_counts[]{
+        0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+        0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0,
+        0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 1, 1, 1, 1, 1, 1, 0, 0, 0
+      };
+      constexpr static cell op_casetbl = 74;
+      constexpr static cell op_last_defined = 174;
+
+      size_t i = 0;
+      while (i < count) {
+        const auto opcode = detail::read_le<cell>(code + i * sizeof(cell));
+        if (opcode == op_casetbl) {
+          if (count - i < 3)
+            return loader_error::invalid_file;
+          const auto records = detail::read_le<cell>(code + (i + 1) * sizeof(cell));
+          if ((uint64_t)records > (uint64_t)((count - i - 3) / 2))
+            return loader_error::invalid_file;
+          i += 3 + 2 * (size_t)records;
+        } else if (opcode < sizeof(operand_counts)) {
+          i += (size_t)1 + operand_counts[(size_t)opcode];
+        } else if (opcode <= op_last_defined) {
+          return loader_error::feature_not_supported;
+        } else {
+          return loader_error::invalid_file;
+        }
+      }
+      if (i != count)
+        return loader_error::invalid_file;
+      return loader_error::success;
+    }
+
   public:
     loader_error init(const uint8_t* buf, size_t buf_size, const callbacks_arg& callbacks) {
       static_assert(expected_magic != 0, "unsupported cell size");
       using namespace detail;
-
-      _on_single_step = callbacks.on_single_step;
-      _on_break = callbacks.on_break;
-      _callback_user_data = callbacks.user_data;
 
       if (buf_size < 60)
         return loader_error::invalid_file;
@@ -307,29 +343,46 @@ namespace amx {
           return loader_error::invalid_file;
         }
       }
-      if (size > buf_size)
+      if (size < 60 || size > buf_size)
         return loader_error::invalid_file;
       if (file_version != 11)
         return loader_error::unsupported_file_version;
       if (amx_version > amx_t::version)
         return loader_error::unsupported_amx_version;
-      if (flags & flag_overlay || flags & flag_sleep)
+      if (flags & flag_overlay || flags & flag_sleep || flags & flag_crypt)
         return loader_error::feature_not_supported;
       if (defsize < 8)
         return loader_error::invalid_file;
+      if (cod < 60 || cod > dat || dat > hea || hea > size || stp < hea)
+        return loader_error::invalid_file;
+      if ((dat - cod) % sizeof(cell) != 0 || (hea - dat) % sizeof(cell) != 0 || (stp - hea) % sizeof(cell) != 0)
+        return loader_error::invalid_file;
+      if ((dat - cod) / sizeof(cell) > (cell)~(cell)0 / sizeof(cell))
+        return loader_error::invalid_file;
+      if ((stp - dat) / sizeof(cell) > (cell)~(cell)0 / sizeof(cell))
+        return loader_error::invalid_file;
+      if (publics < 60 || publics > natives || natives > libraries || libraries > pubvars || pubvars > tags || tags > cod)
+        return loader_error::invalid_file;
+      if (libraries != pubvars)
+        return loader_error::feature_not_supported;
+      if (cip != (uint32_t)-1 && (cip % sizeof(cell) != 0 || cip >= dat - cod))
+        return loader_error::invalid_file;
 
       size_t code_count{};
-      if (!count_valarray(buf, buf_size, cod, dat, sizeof(cell), code_count))
+      if (!count_valarray(buf, size, cod, dat, sizeof(cell), code_count))
         return loader_error::invalid_file;
+
+      const auto code_check = check_code_is_core(buf + cod, code_count);
+      if (code_check != loader_error::success)
+        return code_check;
 
       size_t data_count{};
-      if (!count_valarray(buf, buf_size, dat, hea, sizeof(cell), data_count))
+      if (!count_valarray(buf, size, dat, hea, sizeof(cell), data_count))
         return loader_error::invalid_file;
 
-      const auto extra_size = (stp - hea) + sizeof(cell) - 1;
-      const auto data_alloc_count = data_count + extra_size / sizeof(cell);
+      const auto data_alloc_count = data_count + (stp - hea) / sizeof(cell);
 
-      _main = (cip == (uint32_t)-1 ? 0 : cip);
+      const auto main = (cell)(cip == (uint32_t)-1 ? 0 : cip);
 
       size_t string_buffer_size{};
 
@@ -337,25 +390,23 @@ namespace amx {
 
       auto success = iter_valarray(
         buf,
-        buf_size,
+        size,
         publics,
         natives,
         defsize,
         [&](const uint8_t* p) {
-          //const auto address = read_le<uint32_t>(p);
+          const auto address = read_le<uint32_t>(p);
           const auto nameofs = read_le<uint32_t>(p + 4);
-          auto nameend = nameofs;
-          for (; nameend < buf_size; ++nameend)
+          if (address % sizeof(cell) != 0 || address >= dat - cod)
+            return false;
+          auto nameend = (size_t)nameofs;
+          for (; nameend < size; ++nameend)
             if (!buf[nameend])
               break;
-          if (nameend >= buf_size)
+          if (nameend >= size)
             return false;
-          const auto begin = (const char*)buf + nameofs;
-          const auto end = (const char*)buf + nameend;
           ++publics_count;
-          string_buffer_size += end - begin + 1;
-          //std::string name{ begin, end };
-          //this->_publics[name] = address;
+          string_buffer_size += nameend - nameofs + 1;
           return true;
         }
       );
@@ -367,20 +418,19 @@ namespace amx {
       bool native_not_found = false;
       success = iter_valarray(
         buf,
-        buf_size,
+        size,
         natives,
         libraries,
         defsize,
         [&](const uint8_t* p) {
           const auto nameofs = read_le<uint32_t>(p + 4);
-          auto nameend = nameofs;
-          for (; nameend < buf_size; ++nameend)
+          auto nameend = (size_t)nameofs;
+          for (; nameend < size; ++nameend)
             if (!buf[nameend])
               break;
-          if (nameend >= buf_size)
+          if (nameend >= size)
             return false;
           const auto begin = (const char*)buf + nameofs;
-          //const auto end = (const char*)buf + nameend;
 
           const auto callbacks_natives_end = callbacks.natives + callbacks.natives_count;
           const auto result = std::find_if(
@@ -393,7 +443,6 @@ namespace amx {
             return false;
           }
           ++natives_count;
-          //this->_natives.push_back(result->callback);
           return true;
         }
       );
@@ -401,31 +450,26 @@ namespace amx {
       if (!success)
         return native_not_found ? loader_error::native_not_resolved : loader_error::invalid_file;
 
-      if (libraries != pubvars)
-        return loader_error::feature_not_supported;
-
       size_t pubvars_count{};
       success = iter_valarray(
         buf,
-        buf_size,
+        size,
         pubvars,
         tags,
         defsize,
         [&](const uint8_t* p) {
-          //const auto address = read_le<uint32_t>(p);
+          const auto address = read_le<uint32_t>(p);
           const auto nameofs = read_le<uint32_t>(p + 4);
-          auto nameend = nameofs;
-          for (; nameend < buf_size; ++nameend)
+          if (address % sizeof(cell) != 0 || address >= hea - dat)
+            return false;
+          auto nameend = (size_t)nameofs;
+          for (; nameend < size; ++nameend)
             if (!buf[nameend])
               break;
-          if (nameend >= buf_size)
+          if (nameend >= size)
             return false;
-          const auto begin = (const char*)buf + nameofs;
-          const auto end = (const char*)buf + nameend;
           ++pubvars_count;
-          string_buffer_size += end - begin + 1;
-          //std::string name{ begin, end };
-          //this->_pubvars[name] = address;
+          string_buffer_size += nameend - nameofs + 1;
           return true;
         }
       );
@@ -437,73 +481,68 @@ namespace amx {
                                 + align_up(code_count * sizeof(cell), MEMORY_ALLOCATION_ALIGNMENT)
                                 + align_up(data_alloc_count * sizeof(cell), MEMORY_ALLOCATION_ALIGNMENT)
                                 + align_up(publics_count * sizeof(*_publics_ptr), MEMORY_ALLOCATION_ALIGNMENT)
-                                + align_up(pubvars_count * sizeof(*_publics_ptr), MEMORY_ALLOCATION_ALIGNMENT)
-                                + align_up(natives_count * sizeof(*_publics_ptr), MEMORY_ALLOCATION_ALIGNMENT)
+                                + align_up(pubvars_count * sizeof(*_pubvars_ptr), MEMORY_ALLOCATION_ALIGNMENT)
+                                + align_up(natives_count * sizeof(*_natives_ptr), MEMORY_ALLOCATION_ALIGNMENT)
                                 + string_buffer_size;
 
       const auto alloc = ExAllocatePoolZero(NonPagedPoolNxCacheAligned, alloc_size, 'LxmA');
       if (!alloc)
-        return loader_error::unknown;
+        return loader_error::out_of_memory;
 
-      memset(alloc, 0, alloc_size);
-
-      _alloc = alloc;
+      cell* code_ptr{};
+      size_t code_ptr_count{};
+      cell* data_ptr{};
+      size_t data_ptr_count{};
+      std::pair<const char*, cell>* publics_ptr{};
+      size_t publics_ptr_count{};
+      std::pair<const char*, cell>* pubvars_ptr{};
+      size_t pubvars_ptr_count{};
+      native_fn* natives_ptr{};
+      size_t natives_ptr_count{};
 
       auto alloc_it = (uint8_t*)alloc;
 
-      alloc_from_buffer_aligned(alloc_it, _code_ptr, _code_count, code_count);
-      alloc_from_buffer_aligned(alloc_it, _data_ptr, _data_count, data_alloc_count);
-      alloc_from_buffer_aligned(alloc_it, _publics_ptr, _publics_count, publics_count);
-      alloc_from_buffer_aligned(alloc_it, _pubvars_ptr, _pubvars_count, pubvars_count);
-      alloc_from_buffer_aligned(alloc_it, _natives_ptr, _natives_count, natives_count);
+      alloc_from_buffer_aligned(alloc_it, code_ptr, code_ptr_count, code_count);
+      alloc_from_buffer_aligned(alloc_it, data_ptr, data_ptr_count, data_alloc_count);
+      alloc_from_buffer_aligned(alloc_it, publics_ptr, publics_ptr_count, publics_count);
+      alloc_from_buffer_aligned(alloc_it, pubvars_ptr, pubvars_ptr_count, pubvars_count);
+      alloc_from_buffer_aligned(alloc_it, natives_ptr, natives_ptr_count, natives_count);
 
       auto string_buffer = (char*)alloc_it;
 
       // safe since it was checked when counting
-      memcpy(_code_ptr, buf + cod, dat - cod);
-      for (size_t i = 0; i < _code_count; ++i)
-        _code_ptr[i] = from_le(_code_ptr[i]);
+      memcpy(code_ptr, buf + cod, dat - cod);
+      for (size_t i = 0; i < code_ptr_count; ++i)
+        code_ptr[i] = from_le(code_ptr[i]);
 
       // safe since it was checked when counting
-      memcpy(_data_ptr, buf + dat, hea - dat);
-      for (size_t i = 0; i < _code_count; ++i)
-        _data_ptr[i] = from_le(_data_ptr[i]);
-
-      cell code_base{};
-      bool result = amx.mem.code().map(_code_ptr, _code_count, code_base);
-      if (!result)
-        return loader_error::unknown;
-
-      cell data_base{};
-      result = amx.mem.data().map(_data_ptr, _data_count, data_base);
-      if (!result)
-        return loader_error::unknown;
+      memcpy(data_ptr, buf + dat, hea - dat);
+      for (size_t i = 0; i < data_count; ++i)
+        data_ptr[i] = from_le(data_ptr[i]);
 
       // safe since it was checked when counting
       size_t publics_counter{};
       iter_valarray(
         buf,
-        buf_size,
+        size,
         publics,
         natives,
         defsize,
         [&](const uint8_t* p) {
           const auto address = read_le<uint32_t>(p);
           const auto nameofs = read_le<uint32_t>(p + 4);
-          auto nameend = nameofs;
-          for (; nameend < buf_size; ++nameend)
+          auto nameend = (size_t)nameofs;
+          for (; nameend < size; ++nameend)
             if (!buf[nameend])
               break;
-          if (nameend >= buf_size)
+          if (nameend >= size)
             return false;
-          const auto begin = (const char*)buf + nameofs;
-          const auto end = (const char*)buf + nameend;
 
           char* name = string_buffer;
-          string_buffer += end - begin + 1;
-          memcpy(name, begin, end - begin);
+          string_buffer += nameend - nameofs + 1;
+          memcpy(name, buf + nameofs, nameend - nameofs);
 
-          this->_publics_ptr[publics_counter++] = {name, address};
+          publics_ptr[publics_counter++] = {name, address};
           return true;
         }
       );
@@ -512,20 +551,19 @@ namespace amx {
       size_t natives_counter{};
       iter_valarray(
         buf,
-        buf_size,
+        size,
         natives,
         libraries,
         defsize,
         [&](const uint8_t* p) {
           const auto nameofs = read_le<uint32_t>(p + 4);
-          auto nameend = nameofs;
-          for (; nameend < buf_size; ++nameend)
+          auto nameend = (size_t)nameofs;
+          for (; nameend < size; ++nameend)
             if (!buf[nameend])
               break;
-          if (nameend >= buf_size)
+          if (nameend >= size)
             return false;
           const auto begin = (const char*)buf + nameofs;
-          //const auto end = (const char*)buf + nameend;
 
           const auto callbacks_natives_end = callbacks.natives + callbacks.natives_count;
           const auto result_it = std::find_if(
@@ -537,7 +575,7 @@ namespace amx {
             native_not_found = true;
             return false;
           }
-          this->_natives_ptr[natives_counter++] = result_it->callback;
+          natives_ptr[natives_counter++] = result_it->callback;
           return true;
         }
       );
@@ -546,41 +584,80 @@ namespace amx {
       size_t pubvars_counter{};
       iter_valarray(
         buf,
-        buf_size,
+        size,
         pubvars,
         tags,
         defsize,
         [&](const uint8_t* p) {
           const auto address = read_le<uint32_t>(p);
           const auto nameofs = read_le<uint32_t>(p + 4);
-          auto nameend = nameofs;
-          for (; nameend < buf_size; ++nameend)
+          auto nameend = (size_t)nameofs;
+          for (; nameend < size; ++nameend)
             if (!buf[nameend])
               break;
-          if (nameend >= buf_size)
+          if (nameend >= size)
             return false;
-          const auto begin = (const char*)buf + nameofs;
-          const auto end = (const char*)buf + nameend;
-          ++pubvars_count;
-          string_buffer_size += end - begin + 1;
 
           char* name = string_buffer;
-          string_buffer += end - begin + 1;
-          memcpy(name, begin, end - begin);
+          string_buffer += nameend - nameofs + 1;
+          memcpy(name, buf + nameofs, nameend - nameofs);
 
-          this->_pubvars_ptr[pubvars_counter++] = {name, address};
+          pubvars_ptr[pubvars_counter++] = {name, address};
           return true;
         }
       );
 
       // something went very very wrong
-      if (string_buffer >= (char*)alloc + alloc_size)
+      if (string_buffer > (char*)alloc + alloc_size) {
+        ExFreePool(alloc);
         return loader_error::unknown;
+      }
+
+      _on_single_step = callbacks.on_single_step;
+      _on_break = callbacks.on_break;
+      _callback_user_data = callbacks.user_data;
+
+      if (_mapped) {
+        amx.mem.code().unmap(_code_base, _code_count);
+        amx.mem.data().unmap(_data_base, _data_count);
+        _mapped = false;
+      }
+
+      if (_alloc)
+        ExFreePool(_alloc);
+
+      _alloc = alloc;
+      _code_ptr = code_ptr;
+      _code_count = code_ptr_count;
+      _data_ptr = data_ptr;
+      _data_count = data_ptr_count;
+      _publics_ptr = publics_ptr;
+      _publics_count = publics_ptr_count;
+      _pubvars_ptr = pubvars_ptr;
+      _pubvars_count = pubvars_ptr_count;
+      _natives_ptr = natives_ptr;
+      _natives_count = natives_ptr_count;
+      _main = main;
+
+      cell code_base{};
+      if (!amx.mem.code().map(_code_ptr, _code_count, code_base))
+        return loader_error::unknown;
+
+      cell data_base{};
+      if (!amx.mem.data().map(_data_ptr, _data_count, data_base)) {
+        amx.mem.code().unmap(code_base, _code_count);
+        return loader_error::unknown;
+      }
+
+      _code_base = code_base;
+      _data_base = data_base;
+      _mapped = true;
 
       amx.COD = code_base;
       amx.DAT = data_base;
 
-      amx.STK = amx.STP = (cell)((_data_count - 1) * sizeof(cell));
+      amx.PRI = amx.ALT = amx.FRM = amx.CIP = 0;
+      amx.STK = amx.STP = (cell)(_data_count * sizeof(cell));
       amx.HEA = (cell)(data_count * sizeof(cell));
 
       return loader_error::success;

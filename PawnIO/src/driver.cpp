@@ -228,6 +228,11 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp) {
     break;
 
   case IRP_MJ_DEVICE_CONTROL:
+    if (KeGetCurrentIrql() != PASSIVE_LEVEL) {
+      status = STATUS_INVALID_DEVICE_STATE;
+      break;
+    }
+
     switch (irp_stack->Parameters.DeviceIoControl.IoControlCode) {
     case IOCTL_PIO_LOAD_BINARY:
       if (irp_stack->FileObject->FsContext) {

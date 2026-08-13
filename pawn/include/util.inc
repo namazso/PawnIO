@@ -37,10 +37,9 @@
 /// @param x Dividend
 /// @param y Divisor
 /// @return The result of the division, rounded up (round towards +infinity)
-/// @note The divide operator, "/", truncates (round towards zero)
+/// @note The divide operator, "/", floors (rounds towards -infinity)
 stock div_ceil(x, y) {
-    new quotientPositive = (y >= 0) == (x >= 0);
-    return x / y + _:(x % y != 0 && quotientPositive);
+    return x / y + _:(x % y != 0);
 }
 
 /// Divide two numbers and round down.
@@ -48,10 +47,9 @@ stock div_ceil(x, y) {
 /// @param x Dividend
 /// @param y Divisor
 /// @return The result of the division, rounded down (round towards -infinity)
-/// @note The divide operator, "/", truncates (round towards zero)
+/// @note This is just operator "/", which floors
 stock div_floor(x, y) {
-    new quotientNegative = (y < 0) != (x < 0);
-    return x / y - _:(x % y != 0 && quotientNegative);
+    return x / y;
 }
 
 /// Divide two numbers and round away from zero.
@@ -59,10 +57,10 @@ stock div_floor(x, y) {
 /// @param x Dividend
 /// @param y Divisor
 /// @return The result of the division, rounded away from zero
-/// @note The divide operator, "/", truncates (round towards zero)
+/// @note The divide operator, "/", floors (rounds towards -infinity)
 stock div_away(x, y) {
-    new quotientSgn = ((x > 0) - (x < 0)) * ((y > 0) - (y < 0));
-    return x / y + _:(x % y != 0) * quotientSgn;
+    new quotientPositive = (y >= 0) == (x >= 0);
+    return x / y + _:(x % y != 0 && quotientPositive);
 }
 
 /// Divide two numbers and round towards zero.
@@ -70,9 +68,10 @@ stock div_away(x, y) {
 /// @param x Dividend
 /// @param y Divisor
 /// @return The result of the division, rounded towards zero
-/// @note This is just operator "/"
+/// @note The divide operator, "/", floors (rounds towards -infinity)
 stock div_trunc(x, y) {
-    return x / y;
+    new quotientNegative = (y < 0) != (x < 0);
+    return x / y + _:(x % y != 0 && quotientNegative);
 }
 
 /// Unpack bytes packed into cells.

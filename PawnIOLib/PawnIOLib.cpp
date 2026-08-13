@@ -213,6 +213,8 @@ PAWNIONTAPI pawnio_execute_nt(
   PSIZE_T return_size
 ) {
   *return_size = 0;
+  if ((SIZE_T)lstrlenA(name) >= FN_NAME_LENGTH)
+    return STATUS_NAME_TOO_LONG;
   char* p = nullptr;
   HANDLE heap = nullptr;
   void* heapalloc = nullptr;
@@ -226,8 +228,9 @@ PAWNIONTAPI pawnio_execute_nt(
   } else {
     p = (char*)_alloca(allocsize);
   }
-  lstrcpynA(p, name, 31);
-  p[31] = 0;
+  RtlZeroMemory(p, FN_NAME_LENGTH);
+  lstrcpynA(p, name, FN_NAME_LENGTH);
+  p[FN_NAME_LENGTH - 1] = 0;
   if (in_size)
     RtlMoveMemory(p + 32, in, in_size * sizeof(*in));
 
@@ -332,6 +335,8 @@ PAWNIONTAPI pawnio_execute_async_nt(
   const auto apc_routine = (PIO_APC_ROUTINE)apc;
   const auto iosb = (PIO_STATUS_BLOCK)io_status_block;
 
+  if ((SIZE_T)lstrlenA(name) >= FN_NAME_LENGTH)
+    return STATUS_NAME_TOO_LONG;
   char* p = nullptr;
   HANDLE heap = nullptr;
   void* heapalloc = nullptr;
@@ -345,8 +350,9 @@ PAWNIONTAPI pawnio_execute_async_nt(
   } else {
     p = (char*)_alloca(allocsize);
   }
-  lstrcpynA(p, name, 31);
-  p[31] = 0;
+  RtlZeroMemory(p, FN_NAME_LENGTH);
+  lstrcpynA(p, name, FN_NAME_LENGTH);
+  p[FN_NAME_LENGTH - 1] = 0;
   if (in_size)
     RtlMoveMemory(p + 32, in, in_size * sizeof(*in));
 

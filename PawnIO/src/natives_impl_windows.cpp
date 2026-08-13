@@ -463,7 +463,7 @@ void cpuid(cell leaf, cell subleaf, std::array<cell, 4>& out) {
   int out32[4];
   __cpuidex(out32, (int)leaf, (int)subleaf);
   for (size_t i = 0; i < 4; ++i)
-    out[i] = out32[i];
+    out[i] = (uint32_t)out32[i];
 }
 
 extern "C" cell _crdr(cell id, cell v);

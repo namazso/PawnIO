@@ -100,6 +100,7 @@ set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "ProgramDatabase")
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 string(REGEX REPLACE "(^| )[/-]GR( |$)" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+string(REGEX REPLACE "(^| )[/-]EHsc( |$)" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 find_program(MAKECAB makecab REQUIRED)
 
@@ -125,6 +126,8 @@ add_library(PawnIOLib SHARED
         PawnIOLib/resource.rc
 )
 
+target_compile_options(PawnIOLib PRIVATE /EHsc)
+
 target_link_libraries(PawnIOLib PRIVATE ntdll.lib PawnIOInclude)
 
 target_link_options(PawnIOLib PRIVATE
@@ -140,5 +143,7 @@ add_executable(PawnIOUtil
         PawnIOUtil/signature.cpp
         PawnIOUtil/resource.rc
 )
+
+target_compile_options(PawnIOUtil PRIVATE /EHsc)
 
 target_link_libraries(PawnIOUtil PRIVATE PawnIOLib)

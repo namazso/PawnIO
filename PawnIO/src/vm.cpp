@@ -682,6 +682,7 @@ const static amx64_loader::native_arg NATIVES[] =
 #elif defined(ARCH_X64)
 
   DEFINE_NATIVE(query_dell_smm),
+  DEFINE_NATIVE(smi),
 
   DEFINE_NATIVE(io_out_byte),
   DEFINE_NATIVE(io_out_word),

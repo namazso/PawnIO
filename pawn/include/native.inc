@@ -454,6 +454,14 @@ native NTSTATUS:microsleep2(us);
 /// @return Current performance counter value
 native qpc(&frequency);
 
+/// Invoke a software system-management interrupt.
+///
+/// @param regs Input and output registers in order rax rcx rdx rbx unused rbp rsi rdi r8 r9 r10 r11 r12 r13 r14 r15
+/// @param rflags_and Bits retained from the current RFLAGS value
+/// @param rflags_or Bits forced in the current RFLAGS value
+/// @return RFLAGS after the SMI
+native smi(regs[16], rflags_and, rflags_or);
+
 /// Invoke DELL SMM.
 ///
 /// @param in Input registers in order eax ecx edx ebx esi edi

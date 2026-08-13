@@ -142,6 +142,30 @@ cell qpc(cell& frequency);
 
 // order: eax ecx edx ebx esi edi
 cell query_dell_smm(std::array<cell, 6> in, std::array<cell, 6>& out);
+struct smm_regs {
+  uint64_t rax;
+  uint64_t rcx;
+  uint64_t rdx;
+  uint64_t rbx;
+  uint64_t _unused;
+  uint64_t rbp;
+  uint64_t rsi;
+  uint64_t rdi;
+  uint64_t r8;
+  uint64_t r9;
+  uint64_t r10;
+  uint64_t r11;
+  uint64_t r12;
+  uint64_t r13;
+  uint64_t r14;
+  uint64_t r15;
+};
+
+static_assert(sizeof(smm_regs) == 16 * sizeof(uint64_t));
+
+extern "C" uint64_t _smi(smm_regs* regs, uint64_t rflags_and, uint64_t rflags_or);
+
+cell smi(std::array<cell, 16>& regs, cell rflags_and, cell rflags_or);
 
 void io_out_byte(cell port, cell value);
 void io_out_word(cell port, cell value);

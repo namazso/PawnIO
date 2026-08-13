@@ -46,6 +46,109 @@
 
 .code
 
+PUBLIC _smi
+
+getflags PROC FRAME
+    pushfq
+    .pushreg rax
+    .endprolog
+    .beginepilog
+    pop rax
+    ret
+getflags ENDP
+
+setflags PROC FRAME
+    push rcx
+    .allocstack 8
+    .endprolog
+    popfq
+    ret
+setflags ENDP
+
+_smi PROC FRAME
+    push rbx
+    .pushreg rbx
+    push rbp
+    .pushreg rbp
+    push rsi
+    .pushreg rsi
+    push rdi
+    .pushreg rdi
+    push r12
+    .pushreg r12
+    push r13
+    .pushreg r13
+    push r14
+    .pushreg r14
+    push r15
+    .pushreg r15
+    sub rsp, 58h
+    .allocstack 58h
+    .endprolog
+
+    mov [rsp+28h], rcx
+    mov [rsp+30h], rdx
+    mov [rsp+38h], r8
+
+    call getflags
+    and rax, qword ptr [rsp+30h]
+    or rax, qword ptr [rsp+38h]
+    mov rcx, rax
+    call setflags
+
+    mov r12, qword ptr [rsp+28h]
+    mov rax, [r12]
+    mov rcx, [r12+8]
+    mov rdx, [r12+10h]
+    mov rbx, [r12+18h]
+    mov rbp, [r12+28h]
+    mov rsi, [r12+30h]
+    mov rdi, [r12+38h]
+    mov r8, [r12+40h]
+    mov r9, [r12+48h]
+    mov r10, [r12+50h]
+    mov r11, [r12+58h]
+    mov r13, [r12+68h]
+    mov r14, [r12+70h]
+    mov r15, [r12+78h]
+    mov r12, [r12+60h]
+
+    out 0b2h, al
+    out 0ebh, al
+    out 0ebh, al
+
+    mov [rsp+40h], r12
+    mov r12, qword ptr [rsp+28h]
+    mov [r12], rax
+    mov [r12+8], rcx
+    mov [r12+10h], rdx
+    mov [r12+18h], rbx
+    mov [r12+28h], rbp
+    mov [r12+30h], rsi
+    mov [r12+38h], rdi
+    mov [r12+40h], r8
+    mov [r12+48h], r9
+    mov [r12+50h], r10
+    mov [r12+58h], r11
+    mov rax, qword ptr [rsp+40h]
+    mov [r12+60h], rax
+    mov [r12+68h], r13
+    mov [r12+70h], r14
+    mov [r12+78h], r15
+
+    call getflags
+    add rsp, 58h
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbp
+    pop rbx
+    ret
+_smi ENDP
+
 PUBLIC _dell
 
 _dell PROC FRAME

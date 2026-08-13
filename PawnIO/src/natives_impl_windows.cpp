@@ -425,6 +425,11 @@ cell query_dell_smm(std::array<cell, 6> in, std::array<cell, 6>& out) {
   return (result == 0 && (regs[0] & 0xFFFF) != 0xFFFF && regs[0] != (ULONG)in[0]);
 }
 
+
+cell smi(std::array<cell, 16>& regs, cell rflags_and, cell rflags_or) {
+  return _smi((smm_regs*)regs.data(), rflags_and, rflags_or);
+}
+
 void io_out_byte(cell port, cell value) { __outbyte((USHORT)port, (UCHAR)value); }
 void io_out_word(cell port, cell value) { __outword((USHORT)port, (USHORT)value); }
 void io_out_dword(cell port, cell value) { __outdword((USHORT)port, (ULONG)value); }

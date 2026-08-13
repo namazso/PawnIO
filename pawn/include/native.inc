@@ -26,6 +26,7 @@ native NTSTATUS:debug_print(const fmt[], ...);
 ///
 /// @param name Function name
 /// @return AMX virtual address of function
+/// @retval 0 Function not found
 native AmxCip:get_public(const name[]);
 
 /// Allocate a callback function, calling @p cip when called

@@ -385,6 +385,8 @@ amx::error get_proc_address_wrap(amx64* amx, amx64_loader* loader, void* user, c
   const auto res = amx_strcpy(func_name, std::size(func_name), amx, vfmt);
   if (res == -1)
     return amx::error::access_violation;
+  if (res == -2)
+    return amx::error::success;
   if (res <= 0)
     return amx::error::invalid_operand;
 
@@ -410,6 +412,8 @@ amx::error get_public(amx64* amx, amx64_loader* loader, void* user, cell argc, c
   const auto res = amx_strcpy(func_name, std::size(func_name), amx, vfmt);
   if (res == -1)
     return amx::error::access_violation;
+  if (res == -2)
+    return amx::error::success;
   if (res <= 0)
     return amx::error::invalid_operand;
 
@@ -425,7 +429,7 @@ amx::error get_native(amx64* amx, amx64_loader* loader, void* user, cell argc, c
   UNREFERENCED_PARAMETER(loader);
   UNREFERENCED_PARAMETER(user);
 
-  retval = 0;
+  retval = (cell)(scell)-1;
 
   char func_name[33]{};
 
@@ -439,6 +443,8 @@ amx::error get_native(amx64* amx, amx64_loader* loader, void* user, cell argc, c
   const auto res = amx_strcpy(func_name, std::size(func_name), amx, vfmt);
   if (res == -1)
     return amx::error::access_violation;
+  if (res == -2)
+    return amx::error::success;
   if (res <= 0)
     return amx::error::invalid_operand;
 

@@ -56,13 +56,41 @@ public:
   FORCEINLINE NTSTATUS init() { return ExInitializeResourceLite(&_resource); }
   FORCEINLINE NTSTATUS destroy() { return ExDeleteResourceLite(&_resource); }
 
-  FORCEINLINE void lock() { ExAcquireResourceExclusiveLite(&_resource, TRUE); }
-  FORCEINLINE bool try_lock() { return TRUE == ExAcquireResourceExclusiveLite(&_resource, FALSE); }
-  FORCEINLINE void unlock() { ExReleaseResourceLite(&_resource); }
+  FORCEINLINE void lock() {
+    KeEnterCriticalRegion();
+    ExAcquireResourceExclusiveLite(&_resource, TRUE);
+  }
 
-  FORCEINLINE void lock_shared() { ExAcquireResourceSharedLite(&_resource, TRUE); }
-  FORCEINLINE bool try_lock_shared() { return TRUE == ExAcquireResourceSharedLite(&_resource, FALSE); }
-  FORCEINLINE void unlock_shared() { ExReleaseResourceLite(&_resource); }
+  FORCEINLINE bool try_lock() {
+    KeEnterCriticalRegion();
+    if (TRUE == ExAcquireResourceExclusiveLite(&_resource, FALSE))
+      return true;
+    KeLeaveCriticalRegion();
+    return false;
+  }
+
+  FORCEINLINE void unlock() {
+    ExReleaseResourceLite(&_resource);
+    KeLeaveCriticalRegion();
+  }
+
+  FORCEINLINE void lock_shared() {
+    KeEnterCriticalRegion();
+    ExAcquireResourceSharedLite(&_resource, TRUE);
+  }
+
+  FORCEINLINE bool try_lock_shared() {
+    KeEnterCriticalRegion();
+    if (TRUE == ExAcquireResourceSharedLite(&_resource, FALSE))
+      return true;
+    KeLeaveCriticalRegion();
+    return false;
+  }
+
+  FORCEINLINE void unlock_shared() {
+    ExReleaseResourceLite(&_resource);
+    KeLeaveCriticalRegion();
+  }
 };
 
 template <typename Callback>

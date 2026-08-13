@@ -204,16 +204,16 @@ public:
   FORCEINLINE [[nodiscard]] const_iterator cbegin() const { return const_iterator(this, _head.Flink); }
   
   FORCEINLINE [[nodiscard]] iterator end() { return iterator(this, &_head); }
-  FORCEINLINE [[nodiscard]] const_iterator end() const { return const_iterator(this, &_head); }
-  FORCEINLINE [[nodiscard]] const_iterator cend() const { return const_iterator(this, &_head); }
+  FORCEINLINE [[nodiscard]] const_iterator end() const { return const_iterator(this, const_cast<PLIST_ENTRY>(&_head)); }
+  FORCEINLINE [[nodiscard]] const_iterator cend() const { return const_iterator(this, const_cast<PLIST_ENTRY>(&_head)); }
   
-  FORCEINLINE [[nodiscard]] iterator rbegin() { return reverse_iterator(end()); }
-  FORCEINLINE [[nodiscard]] const_iterator rbegin() const { return const_reverse_iterator(end()); }
-  FORCEINLINE [[nodiscard]] const_iterator crbegin() const { return const_reverse_iterator(cend()); }
-  
-  FORCEINLINE [[nodiscard]] iterator rend() { return reverse_iterator(begin()); }
-  FORCEINLINE [[nodiscard]] const_iterator rend() const { return const_reverse_iterator(begin()); }
-  FORCEINLINE [[nodiscard]] const_iterator crend() const { return const_reverse_iterator(cbegin()); }
+  FORCEINLINE [[nodiscard]] reverse_iterator rbegin() { return reverse_iterator(end()); }
+  FORCEINLINE [[nodiscard]] const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
+  FORCEINLINE [[nodiscard]] const_reverse_iterator crbegin() const { return const_reverse_iterator(cend()); }
+
+  FORCEINLINE [[nodiscard]] reverse_iterator rend() { return reverse_iterator(begin()); }
+  FORCEINLINE [[nodiscard]] const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
+  FORCEINLINE [[nodiscard]] const_reverse_iterator crend() const { return const_reverse_iterator(cbegin()); }
 
   FORCEINLINE [[nodiscard]] bool empty() const { return IsListEmpty(&_head) != FALSE; }
 

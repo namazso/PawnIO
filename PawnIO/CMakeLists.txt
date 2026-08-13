@@ -33,7 +33,6 @@ target_link_options(PawnIO PRIVATE
         /DEBUG
         /OPT:REF
         /OPT:ICF=10
-        /ENTRY:DriverEntry
         /EMITPOGOPHASEINFO
         /INTEGRITYCHECK
         /FILEALIGN:0x1000

@@ -30,6 +30,7 @@ target_compile_options(PawnIO PRIVATE
 )
 
 target_link_options(PawnIO PRIVATE
+        /guard:ehcont
         /DEBUG
         /OPT:REF
         /OPT:ICF=10

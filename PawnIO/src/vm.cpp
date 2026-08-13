@@ -421,6 +421,7 @@ static cell get_native_index(const char* name);
 static amx64_loader::native_fn get_native_ptr(cell index);
 
 amx::error get_native(amx64* amx, amx64_loader* loader, void* user, cell argc, cell argv, cell& retval) {
+  UNREFERENCED_PARAMETER(loader);
   UNREFERENCED_PARAMETER(user);
 
   retval = 0;

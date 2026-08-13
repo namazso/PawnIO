@@ -21,10 +21,11 @@ target_precompile_headers(PawnIO PRIVATE src/stdafx.h)
 target_compile_options(PawnIO PRIVATE
         /utf-8
         /guard:ehcont
-        /INTEGRITYCHECK
         /d1nodatetime
         /Brepro
         /Zi
+        $<$<COMPILE_LANGUAGE:CXX>:/W4>
+        $<$<COMPILE_LANGUAGE:CXX>:/WX>
 )
 
 target_link_options(PawnIO PRIVATE

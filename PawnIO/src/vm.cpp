@@ -510,6 +510,7 @@ static __declspec(noinline) cell to_amx_callback_dispatch(size_t idx, cell args)
   if (!NT_SUCCESS(status))
     __fastfail(FAST_FAIL_GUARD_ICALL_CHECK_FAILURE);
   const auto res = vm_ctx->loader->amx.call(cip, ret, {args});
+  vm_callback_postcall(vm_ctx);
   if (res != amx::error::success)
     __fastfail(FAST_FAIL_INVALID_THREAD_STATE);
   return ret;

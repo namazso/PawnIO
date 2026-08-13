@@ -143,6 +143,18 @@ struct callback_list<Ret(*)(Args...)> {
     return status;
   }
 
+  FORCEINLINE NTSTATUS call_status_all(Args... args)
+    requires(std::is_same_v<Ret, NTSTATUS>) {
+    std::shared_lock lock{res};
+    NTSTATUS status = STATUS_SUCCESS;
+    for (const auto cb : list.get()) {
+      const auto result = cb(std::forward<Args>(args)...);
+      if (NT_SUCCESS(status))
+        status = result;
+    }
+    return status;
+  }
+
   FORCEINLINE void call_void(Args... args)
     requires(std::is_same_v<Ret, void>) {
     std::shared_lock lock{res};
@@ -185,7 +197,7 @@ void vm_callback_destroy() {
 }
 
 NTSTATUS vm_callback_created(PVOID ctx) {
-  return s_created.call_status(ctx);
+  return s_created.call_status_all(ctx);
 }
 
 NTSTATUS vm_callback_precall(PVOID ctx, UINT_PTR cip) {

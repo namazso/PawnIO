@@ -68,7 +68,11 @@ struct trusted_pubkey {
 PAWNIO_PUBLICAPI const struct trusted_pubkey* pawnio_trusted_keys();
 
 /// Callback function type that gets called when a VM is created.
-/// 
+///
+/// Every registered creation callback is called even if an earlier one blocks
+/// the creation, so that all of them observe the same set of contexts. If any
+/// of them blocks, the VM is torn down and the destruction callbacks run.
+///
 /// @param ctx Context pointer to the created VM.
 /// @return Status code indicating whether to block or allow the creation.
 typedef NTSTATUS pawnio_vm_callback_created(PVOID ctx);
@@ -122,7 +126,10 @@ PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_postcall(ppawnio_vm_callback_
 PAWNIO_PUBLICAPI void pawnio_unregister_vm_callback_postcall(PVOID cookie);
 
 /// Callback function type that gets called when a VM is destroyed.
-/// 
+///
+/// Called for every context the creation callbacks were given, including one
+/// whose creation was blocked.
+///
 /// @param ctx Context pointer to the VM being destroyed.
 typedef void pawnio_vm_callback_destroyed(PVOID ctx);
 typedef pawnio_vm_callback_destroyed* ppawnio_vm_callback_destroyed;

@@ -253,15 +253,21 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp) {
       if (!irp_stack->FileObject->FsContext) {
         status = STATUS_INVALID_PARAMETER;
       } else {
+        const auto in_length = irp_stack->Parameters.DeviceIoControl.InputBufferLength;
+        const auto out_length = irp_stack->Parameters.DeviceIoControl.OutputBufferLength;
+
+        if (out_length > in_length)
+          RtlZeroMemory((PUCHAR)irp->AssociatedIrp.SystemBuffer + in_length, out_length - in_length);
+
         status = vm_execute_function(
           irp_stack->FileObject->FsContext,
           irp->AssociatedIrp.SystemBuffer,
-          irp_stack->Parameters.DeviceIoControl.InputBufferLength,
+          in_length,
           irp->AssociatedIrp.SystemBuffer,
-          irp_stack->Parameters.DeviceIoControl.OutputBufferLength
+          out_length
         );
         if (NT_SUCCESS(status))
-          irp->IoStatus.Information = irp_stack->Parameters.DeviceIoControl.OutputBufferLength;
+          irp->IoStatus.Information = out_length;
       }
       break;
 

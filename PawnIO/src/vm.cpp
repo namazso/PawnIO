@@ -360,7 +360,7 @@ static ptrdiff_t amx_strcpy(char* dst, size_t dst_len, amx64* amx, cell vfmt) {
 
     if (idx == dst_len) {
       dst[dst_len - 1] = 0;
-      break;
+      return -2;
     }
   }
 
@@ -383,10 +383,10 @@ amx::error get_proc_address_wrap(amx64* amx, amx64_loader* loader, void* user, c
   const auto vfmt = *pvfmt;
 
   const auto res = amx_strcpy(func_name, std::size(func_name), amx, vfmt);
-  if (res == 0)
-    return amx::error::invalid_operand;
   if (res == -1)
     return amx::error::access_violation;
+  if (res <= 0)
+    return amx::error::invalid_operand;
 
   retval = get_proc_address(func_name);
 
@@ -408,10 +408,10 @@ amx::error get_public(amx64* amx, amx64_loader* loader, void* user, cell argc, c
   const auto vfmt = *pvfmt;
 
   const auto res = amx_strcpy(func_name, std::size(func_name), amx, vfmt);
-  if (res == 0)
-    return amx::error::invalid_operand;
   if (res == -1)
     return amx::error::access_violation;
+  if (res <= 0)
+    return amx::error::invalid_operand;
 
   retval = loader->get_public(func_name);
 
@@ -437,10 +437,10 @@ amx::error get_native(amx64* amx, amx64_loader* loader, void* user, cell argc, c
   const auto vfmt = *pvfmt;
 
   const auto res = amx_strcpy(func_name, std::size(func_name), amx, vfmt);
-  if (res == 0)
-    return amx::error::invalid_operand;
   if (res == -1)
     return amx::error::access_violation;
+  if (res <= 0)
+    return amx::error::invalid_operand;
 
   retval = get_native_index(func_name);
 

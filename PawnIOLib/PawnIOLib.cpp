@@ -288,6 +288,11 @@ PAWNIOAPI pawnio_execute_async(
     out_size
   );
 
+  if (!NT_SUCCESS(status)) {
+    overlapped->Internal = (ULONG)status;
+    overlapped->InternalHigh = 0;
+  }
+
   if (NT_SUCCESS(status) && status != STATUS_PENDING) {
     return S_OK;
   }
@@ -320,6 +325,11 @@ PAWNIOWINAPI pawnio_execute_async_win32(
     out,
     out_size
   );
+
+  if (!NT_SUCCESS(status)) {
+    overlapped->Internal = (ULONG)status;
+    overlapped->InternalHigh = 0;
+  }
 
   if (NT_SUCCESS(status) && status != STATUS_PENDING) {
     return TRUE;

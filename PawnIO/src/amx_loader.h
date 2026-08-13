@@ -663,10 +663,6 @@ namespace amx {
 
     loader() = default;
 
-    loader(const uint8_t* buf, size_t buf_size, const callbacks_arg& callbacks) {
-      init(buf, buf_size, callbacks);
-    }
-
     ~loader() {
       if (_alloc)
         ExFreePool(_alloc);

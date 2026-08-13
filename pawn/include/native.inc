@@ -98,6 +98,9 @@ native NTSTATUS:cpu_restore_affinity(old[2]);
 /// @param msr MSR Index
 /// @param value Output value
 /// @return An NTSTATUS
+/// @note On ARM64 there is no MSR index. Pass an assembled `mrs x0, <reg>`
+///       instruction word instead, i.e. `0xD5300000 | (op0 << 19) |
+///       (op1 << 16) | (crn << 12) | (crm << 8) | (op2 << 5)`.
 native NTSTATUS:msr_read(msr, &value);
 
 /// Write MSR.
@@ -105,6 +108,9 @@ native NTSTATUS:msr_read(msr, &value);
 /// @param msr MSR Index
 /// @param value New value
 /// @return An NTSTATUS
+/// @note On ARM64 there is no MSR index. Pass the same assembled
+///       `mrs x0, <reg>` instruction word `msr_read` takes; the read encoding
+///       is what is validated for both directions.
 native NTSTATUS:msr_write(msr, value);
 
 /// Disable interrupts, effectively raises IRQL to maximum.

@@ -378,8 +378,8 @@ cell qpc(cell& frequency) {
 
 #if defined(ARCH_A64)
 
-unsigned arm_mrs(unsigned instruction);
-void arm_msr(unsigned instruction, unsigned v);
+uint64_t arm_mrs(uint32_t instruction);
+void arm_msr(uint32_t instruction, uint64_t v);
 
 cell msr_read(cell msr, cell& value) {
   value = 0;
@@ -387,7 +387,7 @@ cell msr_read(cell msr, cell& value) {
     return (cell)(scell)STATUS_INVALID_PARAMETER;
   }
   __try {
-    value = (cell)arm_mrs((ULONG)msr);
+    value = (cell)arm_mrs((uint32_t)msr);
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)(NTSTATUS)GetExceptionCode();
@@ -400,7 +400,7 @@ cell msr_write(cell msr, cell value) {
   }
 
   __try {
-    arm_msr((ULONG)msr, (ULONG)value);
+    arm_msr((uint32_t)msr, value);
     return (cell)(scell)STATUS_SUCCESS;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
     return (cell)(scell)(NTSTATUS)GetExceptionCode();

@@ -166,7 +166,8 @@ int do_interactive(const char* amx, const char* key) {
   while (true) {
     printf("> ");
     std::string str{};
-    std::getline(std::cin, str);
+    if (!std::getline(std::cin, str))
+      break;
     if (str == "quit")
       break;
     else {

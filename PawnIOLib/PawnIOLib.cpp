@@ -109,7 +109,9 @@ static NTSTATUS synchronous_ioctl(
 }
 
 static HRESULT nt_to_hresult(NTSTATUS status) {
-  return HRESULT_FROM_WIN32(RtlNtStatusToDosError(status));
+  if (!NT_SUCCESS(status))
+    return HRESULT_FROM_WIN32(RtlNtStatusToDosError(status));
+  return S_OK;
 }
 
 static BOOL nt_to_win32(NTSTATUS status) {
@@ -290,7 +292,7 @@ PAWNIOAPI pawnio_execute_async(
     return S_OK;
   }
 
-  return nt_to_hresult(status);
+  return HRESULT_FROM_WIN32(RtlNtStatusToDosError(status));
 }
 
 PAWNIOWINAPI pawnio_execute_async_win32(

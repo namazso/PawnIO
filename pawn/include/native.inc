@@ -211,7 +211,7 @@ native VA:io_space_map(pa, size);
 
 /// Unmap IO space.
 ///
-/// @param pa Physical address
+/// @param va Virtual address returned by @ref io_space_map
 /// @param size Size to unmap
 native Void:io_space_unmap(VA:va, size);
 
@@ -503,7 +503,7 @@ native io_in_dword(port);
 ///
 /// @param leaf Passed in eax
 /// @param subleaf Passed in ecx
-/// @param out Output eax, ebc, ecx, edx
+/// @param out Output eax, ebx, ecx, edx
 native Void:cpuid(leaf, subleaf, out[4]);
 
 /// Read control register.
@@ -540,9 +540,9 @@ native NTSTATUS:dr_write(dr, value);
 native NTSTATUS:xcr_read(xcr, &value);
 
 
-/// Write control register.
+/// Write extended control register.
 ///
-/// @param cr Control register number to write
+/// @param xcr Extended control register number to write
 /// @param value Value to write
 /// @return An NTSTATUS
 native NTSTATUS:xcr_write(xcr, value);

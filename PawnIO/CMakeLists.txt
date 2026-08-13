@@ -12,9 +12,10 @@ wdk_add_driver(PawnIO
 
 set_target_properties(PawnIO PROPERTIES ENABLE_EXPORTS ON)
 
-target_include_directories(PawnIO PUBLIC include)
+add_library(PawnIOInclude INTERFACE)
+target_include_directories(PawnIOInclude INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_link_libraries(PawnIO PawnPP WDK::KSECDD)
+target_link_libraries(PawnIO PawnIOInclude PawnPP WDK::KSECDD)
 
 target_precompile_headers(PawnIO PRIVATE src/stdafx.h)
 

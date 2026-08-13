@@ -125,7 +125,7 @@ add_library(PawnIOLib SHARED
         PawnIOLib/resource.rc
 )
 
-target_link_libraries(PawnIOLib PRIVATE ntdll.lib PawnIO)
+target_link_libraries(PawnIOLib PRIVATE ntdll.lib PawnIOInclude)
 
 target_link_options(PawnIOLib PRIVATE
         /ENTRY:DllEntry

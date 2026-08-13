@@ -78,6 +78,10 @@ add_compile_options(
         /Zi
 )
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
+find_package(WDK REQUIRED)
+
 add_link_options(
         /DEBUG
         /OPT:REF
@@ -96,10 +100,6 @@ set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "ProgramDatabase")
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 string(REGEX REPLACE "(^| )[/-]GR( |$)" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
-find_package(WDK REQUIRED)
 
 find_program(MAKECAB makecab REQUIRED)
 

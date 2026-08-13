@@ -100,8 +100,10 @@ native NTSTATUS:cpu_restore_affinity(old[2]);
 /// @param value Output value
 /// @return An NTSTATUS
 /// @note On ARM64 there is no MSR index. Pass an assembled `mrs x0, <reg>`
-///       instruction word instead, i.e. `0xD5300000 | (op0 << 19) |
-///       (op1 << 16) | (crn << 12) | (crm << 8) | (op2 << 5)`.
+///       instruction word instead, i.e. `0xD5300000 | ((op0 - 2) << 19) |
+///       (op1 << 16) | (crn << 12) | (crm << 8) | (op2 << 5)`. Bit 19 is
+///       `o0`, where `op0` is `2 + o0`, so `MIDR_EL1` (`S3_0_C0_C0_0`)
+///       assembles to `0xD5380000`.
 native NTSTATUS:msr_read(msr, &value);
 
 /// Write MSR.

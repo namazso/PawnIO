@@ -133,7 +133,8 @@ public:
 
   FORCEINLINE ~arg_wrapper() {
     for (size_t i = 0; i < N; ++i)
-      *(ps[i]) = value[i];
+      if (ps[i])
+        *(ps[i]) = value[i];
   }
 };
 

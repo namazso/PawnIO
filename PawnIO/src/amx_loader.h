@@ -145,6 +145,18 @@ namespace amx {
       return ret;
     }
 
+    constexpr static size_t max_name_length = 63;
+
+    static bool find_name_end(const uint8_t* buf, size_t buf_size, uint32_t nameofs, size_t& nameend) {
+      if (nameofs >= buf_size)
+        return false;
+      const auto limit = (std::min)(buf_size, (size_t)nameofs + max_name_length + 1);
+      for (nameend = nameofs; nameend < limit; ++nameend)
+        if (!buf[nameend])
+          return true;
+      return false;
+    }
+
     template <typename T>
     static void alloc_from_buffer_aligned(
       uint8_t*& buf,
@@ -403,11 +415,8 @@ namespace amx {
           const auto nameofs = read_le<uint32_t>(p + 4);
           if (address % sizeof(cell) != 0 || address >= dat - cod)
             return false;
-          auto nameend = (size_t)nameofs;
-          for (; nameend < size; ++nameend)
-            if (!buf[nameend])
-              break;
-          if (nameend >= size)
+          size_t nameend{};
+          if (!find_name_end(buf, size, nameofs, nameend))
             return false;
           ++publics_count;
           string_buffer_size += nameend - nameofs + 1;
@@ -428,11 +437,8 @@ namespace amx {
         defsize,
         [&](const uint8_t* p) {
           const auto nameofs = read_le<uint32_t>(p + 4);
-          auto nameend = (size_t)nameofs;
-          for (; nameend < size; ++nameend)
-            if (!buf[nameend])
-              break;
-          if (nameend >= size)
+          size_t nameend{};
+          if (!find_name_end(buf, size, nameofs, nameend))
             return false;
           const auto begin = (const char*)buf + nameofs;
 
@@ -466,11 +472,8 @@ namespace amx {
           const auto nameofs = read_le<uint32_t>(p + 4);
           if (address % sizeof(cell) != 0 || address >= hea - dat)
             return false;
-          auto nameend = (size_t)nameofs;
-          for (; nameend < size; ++nameend)
-            if (!buf[nameend])
-              break;
-          if (nameend >= size)
+          size_t nameend{};
+          if (!find_name_end(buf, size, nameofs, nameend))
             return false;
           ++pubvars_count;
           string_buffer_size += nameend - nameofs + 1;
@@ -535,11 +538,8 @@ namespace amx {
         [&](const uint8_t* p) {
           const auto address = read_le<uint32_t>(p);
           const auto nameofs = read_le<uint32_t>(p + 4);
-          auto nameend = (size_t)nameofs;
-          for (; nameend < size; ++nameend)
-            if (!buf[nameend])
-              break;
-          if (nameend >= size)
+          size_t nameend{};
+          if (!find_name_end(buf, size, nameofs, nameend))
             return false;
 
           char* name = string_buffer;
@@ -561,11 +561,8 @@ namespace amx {
         defsize,
         [&](const uint8_t* p) {
           const auto nameofs = read_le<uint32_t>(p + 4);
-          auto nameend = (size_t)nameofs;
-          for (; nameend < size; ++nameend)
-            if (!buf[nameend])
-              break;
-          if (nameend >= size)
+          size_t nameend{};
+          if (!find_name_end(buf, size, nameofs, nameend))
             return false;
           const auto begin = (const char*)buf + nameofs;
 
@@ -595,11 +592,8 @@ namespace amx {
         [&](const uint8_t* p) {
           const auto address = read_le<uint32_t>(p);
           const auto nameofs = read_le<uint32_t>(p + 4);
-          auto nameend = (size_t)nameofs;
-          for (; nameend < size; ++nameend)
-            if (!buf[nameend])
-              break;
-          if (nameend >= size)
+          size_t nameend{};
+          if (!find_name_end(buf, size, nameofs, nameend))
             return false;
 
           char* name = string_buffer;

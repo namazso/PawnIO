@@ -279,6 +279,7 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp) {
         irp->IoStatus.Information = sizeof(ULONG);
         status = STATUS_SUCCESS;
       }
+      break;
 
     default:
       break;

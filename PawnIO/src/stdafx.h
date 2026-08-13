@@ -51,12 +51,13 @@
 #define NTDDI_VERSION NTDDI_WIN10_RS5
 #include <sdkddkver.h>
 
+#define _ITERATOR_DEBUG_LEVEL 0
+
 #if _MSC_VER >= 1944
 #define _MSVC_STL_HARDENING 0
 #define _MSVC_STL_DOOM_FUNCTION(expr)
 #else
 #define _CONTAINER_DEBUG_LEVEL 0
-#define _ITERATOR_DEBUG_LEVEL 0
 #define _STL_CRT_SECURE_INVALID_PARAMETER(expr)
 #endif
 

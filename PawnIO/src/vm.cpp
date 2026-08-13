@@ -548,6 +548,8 @@ static cell to_amx_callback_alloc(context* vm_ctx, cell cip) {
 }
 
 static void to_amx_callback_free(context* vm_ctx, cell pfn) {
+  if (!pfn)
+    return;
   size_t i;
   for (i = 0; i < k_to_amx_callback_count; ++i)
     if (pfn == (cell)k_to_amx_callback_fns[i])

@@ -215,6 +215,8 @@ PAWNIONTAPI pawnio_execute_nt(
   *return_size = 0;
   if ((SIZE_T)lstrlenA(name) >= FN_NAME_LENGTH)
     return STATUS_NAME_TOO_LONG;
+  if (in_size > (SIZE_MAX - FN_NAME_LENGTH) / sizeof(*in))
+    return STATUS_INVALID_PARAMETER;
   char* p = nullptr;
   HANDLE heap = nullptr;
   void* heapalloc = nullptr;
@@ -337,6 +339,8 @@ PAWNIONTAPI pawnio_execute_async_nt(
 
   if ((SIZE_T)lstrlenA(name) >= FN_NAME_LENGTH)
     return STATUS_NAME_TOO_LONG;
+  if (in_size > (SIZE_MAX - FN_NAME_LENGTH) / sizeof(*in))
+    return STATUS_INVALID_PARAMETER;
   char* p = nullptr;
   HANDLE heap = nullptr;
   void* heapalloc = nullptr;

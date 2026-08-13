@@ -180,6 +180,8 @@ namespace amx {
       flag_dseg_init = 1 << 5,
     };
 
+    constexpr static uint32_t max_stack_heap = 16 * 1024 * 1024;
+
     cell* _code_ptr{};
     size_t _code_count{};
     cell* _data_ptr{};
@@ -354,6 +356,8 @@ namespace amx {
       if (defsize < 8)
         return loader_error::invalid_file;
       if (cod < 60 || cod > dat || dat > hea || hea > size || stp < hea)
+        return loader_error::invalid_file;
+      if (stp - hea > max_stack_heap)
         return loader_error::invalid_file;
       if ((dat - cod) % sizeof(cell) != 0 || (hea - dat) % sizeof(cell) != 0 || (stp - hea) % sizeof(cell) != 0)
         return loader_error::invalid_file;

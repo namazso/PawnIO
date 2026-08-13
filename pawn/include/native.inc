@@ -557,7 +557,7 @@ native Void:invpcid(type, VA:descriptor);
 /// @param pmc Performance counter to read
 /// @param value Value read
 /// @return An NTSTATUS
-native NTSTATUS:readpmc(pmc, value);
+native NTSTATUS:readpmc(pmc, &value);
 
 /// Read TSC.
 ///

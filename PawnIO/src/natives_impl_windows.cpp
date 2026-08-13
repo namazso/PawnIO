@@ -359,6 +359,8 @@ cell get_proc_address(const char* name) {
 }
 
 cell microsleep(cell us) {
+  if (us > (cell)(MAXLONGLONG / 10))
+    return (cell)(scell)STATUS_INVALID_PARAMETER;
   LARGE_INTEGER li;
   li.QuadPart = (scell)us * -10;
   return (cell)(scell)KeDelayExecutionThread(KernelMode, FALSE, &li);

@@ -770,6 +770,8 @@ static NTSTATUS check_signature(const void* mem, size_t len, const uint8_t* sig,
   if (!NT_SUCCESS(status))
     return status;
 
+  status = STATUS_INVALID_SIGNATURE;
+
   for (auto it = k_trusted_keys; it->data; ++it) {
     status = verify_sig(sha256, sig, sig_len, it->data, it->len);
     if (NT_SUCCESS(status))

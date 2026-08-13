@@ -94,6 +94,8 @@ NTSTATUS calculate_sha256(const void* data, size_t size, sha256_buf* sha256) {
 
         BCryptDestroyHash(hash_handle);
       }
+    } else if (NT_SUCCESS(status)) {
+      status = STATUS_UNSUCCESSFUL;
     }
 
     BCryptCloseAlgorithmProvider(alg_handle, 0);

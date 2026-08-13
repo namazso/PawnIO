@@ -23,6 +23,8 @@
 
 #include <winternl.h>
 
+#include <limits.h>
+
 #include <malloc.h>
 
 #include <PawnIOLib.h>
@@ -166,6 +168,8 @@ PAWNIOWINAPI pawnio_load_win32(HANDLE handle, const UCHAR* blob, SIZE_T size) {
 }
 
 PAWNIONTAPI pawnio_load_nt(HANDLE handle, const UCHAR* blob, SIZE_T size) {
+  if (size > ULONG_MAX)
+    return STATUS_INVALID_PARAMETER;
   return synchronous_ioctl(
     handle,
     IOCTL_PIO_LOAD_BINARY,
@@ -215,7 +219,9 @@ PAWNIONTAPI pawnio_execute_nt(
   *return_size = 0;
   if ((SIZE_T)lstrlenA(name) >= FN_NAME_LENGTH)
     return STATUS_NAME_TOO_LONG;
-  if (in_size > (SIZE_MAX - FN_NAME_LENGTH) / sizeof(*in))
+  if (in_size > (ULONG_MAX - FN_NAME_LENGTH) / sizeof(*in))
+    return STATUS_INVALID_PARAMETER;
+  if (out_size > ULONG_MAX / sizeof(*out))
     return STATUS_INVALID_PARAMETER;
   char* p = nullptr;
   HANDLE heap = nullptr;
@@ -243,7 +249,7 @@ PAWNIONTAPI pawnio_execute_nt(
     p,
     (ULONG)allocsize,
     out,
-    (ULONG)out_size * sizeof(*out),
+    (ULONG)(out_size * sizeof(*out)),
     &written
   );
   if (NT_SUCCESS(status)) {
@@ -339,7 +345,9 @@ PAWNIONTAPI pawnio_execute_async_nt(
 
   if ((SIZE_T)lstrlenA(name) >= FN_NAME_LENGTH)
     return STATUS_NAME_TOO_LONG;
-  if (in_size > (SIZE_MAX - FN_NAME_LENGTH) / sizeof(*in))
+  if (in_size > (ULONG_MAX - FN_NAME_LENGTH) / sizeof(*in))
+    return STATUS_INVALID_PARAMETER;
+  if (out_size > ULONG_MAX / sizeof(*out))
     return STATUS_INVALID_PARAMETER;
   char* p = nullptr;
   HANDLE heap = nullptr;

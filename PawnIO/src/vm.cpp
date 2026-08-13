@@ -495,6 +495,8 @@ constexpr static size_t k_to_amx_callback_count = 0x100;
 static to_amx_callback_context s_to_amx_callback_data[k_to_amx_callback_count];
 
 static __declspec(noinline) cell to_amx_callback_dispatch(size_t idx, cell args) {
+  if (KeGetCurrentIrql() > APC_LEVEL)
+    __fastfail(FAST_FAIL_INVALID_LOCK_STATE);
   const auto cb_ctx = &s_to_amx_callback_data[idx];
   const auto vm_ctx = cb_ctx->ctx;
   if (!vm_ctx)

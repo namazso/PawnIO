@@ -472,6 +472,23 @@ amx::error call_native(amx64* amx, amx64_loader* loader, void* user, cell argc, 
   return fn(amx, loader, user, argc - 1, argv + sizeof(cell), retval);
 }
 
+amx::error data_v2p(amx64* amx, amx64_loader* loader, void* user, cell argc, cell argv, cell& retval) {
+  UNREFERENCED_PARAMETER(loader);
+  UNREFERENCED_PARAMETER(user);
+
+  retval = 0;
+
+  if (argc != 1)
+    return amx::error::invalid_operand;
+  const auto paddr = amx->data_v2p(argv);
+  if (!paddr)
+    return amx::error::access_violation;
+
+  retval = (cell)amx->data_v2p(*paddr);
+
+  return amx::error::success;
+}
+
 class wrapped_fast_mutex {
   FAST_MUTEX _mutex{};
 
@@ -613,6 +630,7 @@ const static amx64_loader::native_arg NATIVES[] =
   {"callback_free", &to_amx_callback_free_wrap},
   {"get_native", &get_native},
   {"call_native", &call_native},
+  {"data_v2p", &data_v2p},
 
 #define DEFINE_NATIVE(name) { #name, &native_callback_wrapper<&name> }
 

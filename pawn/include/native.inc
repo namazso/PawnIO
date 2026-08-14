@@ -327,6 +327,16 @@ native VA:virtual_alloc(size);
 /// @param va Allocation virtual address
 native virtual_free(VA:va);
 
+/// Get the virtual address backing an AMX data address.
+///
+/// @param data Array in AMX data memory
+/// @return Virtual address of @p data
+/// @retval 0 Address is not mapped
+/// @warning Only the first cell is checked to be mapped
+/// @warning The address is only valid while the backing mapping is, which for
+///          the buffers of an IOCTL is only the duration of the call
+native VA:data_v2p(data[]);
+
 /// Read a byte from PCI configuration space.
 ///
 /// @param bus Bus number

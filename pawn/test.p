@@ -4,6 +4,8 @@ static bool:g_CallbackCalled = false;
 
 static VAProc:g_CallbackVA;
 
+static g_Buffer[2];
+
 public NTSTATUS:callback(VA:args);
 public NTSTATUS:callback(VA:args) {
     g_CallbackCalled = true;
@@ -318,6 +320,58 @@ NTSTATUS:do_pci_tests() {
     return STATUS_SUCCESS;
 }
 
+NTSTATUS:do_data_v2p_tests() {
+    new buf[2];
+    buf[0] = 0x1122334455667788;
+    buf[1] = 0;
+
+    new VA:va = data_v2p(buf);
+    if (va == NULL) {
+        debug_print(''data_v2p failed on a stack array!\n'');
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    debug_print(''data_v2p of stack array: %x\n'', _:va);
+
+    new temp;
+    new NTSTATUS:status = virtual_read_qword(va, temp);
+    if (!NT_SUCCESS(status)) {
+        debug_print(''Failed to read back the array through its virtual address: %x\n'', _:status);
+        return status;
+    }
+    if (temp != 0x1122334455667788) {
+        debug_print(''Data read through the virtual address does not match the array!\n'');
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    status = virtual_write_qword(va + 8, 0x8877665544332211);
+    if (!NT_SUCCESS(status)) {
+        debug_print(''Failed to write the array through its virtual address: %x\n'', _:status);
+        return status;
+    }
+    if (buf[1] != 0x8877665544332211) {
+        debug_print(''Data written through the virtual address did not land in the array!\n'');
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    new VA:global_va = data_v2p(g_Buffer);
+    if (global_va == NULL) {
+        debug_print(''data_v2p failed on a global array!\n'');
+        return STATUS_UNSUCCESSFUL;
+    }
+    if (global_va == va) {
+        debug_print(''data_v2p returned the same address for two different arrays!\n'');
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    if (get_physical_address(va) == 0) {
+        debug_print(''data_v2p did not return a valid kernel address!\n'');
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    return STATUS_SUCCESS;
+}
+
 DEFINE_IOCTL_SIZED(ioctl_test, 0, 0) {
     if (!g_CallbackCalled) {
         debug_print(''Callback was not called yet!\n'');
@@ -409,6 +463,11 @@ DEFINE_IOCTL_SIZED(ioctl_test, 0, 0) {
     }
 
     status = do_pci_tests();
+    if (!NT_SUCCESS(status)) {
+        return status;
+    }
+
+    status = do_data_v2p_tests();
     if (!NT_SUCCESS(status)) {
         return status;
     }

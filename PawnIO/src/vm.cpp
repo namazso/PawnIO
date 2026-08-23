@@ -489,15 +489,46 @@ amx::error data_v2p(amx64* amx, amx64_loader* loader, void* user, cell argc, cel
   return amx::error::success;
 }
 
-class wrapped_fast_mutex {
-  FAST_MUTEX _mutex{};
+// Serialize the interpreter without raising a PASSIVE_LEVEL caller to
+// APC_LEVEL. Entering a critical region still prevents normal kernel APCs
+// from re-entering the same VM while it is executing.
+class wrapped_resource_mutex {
+  ERESOURCE _resource{};
 
 public:
-  FORCEINLINE void init() { return ExInitializeFastMutex(&_mutex); }
+  FORCEINLINE NTSTATUS init() { return ExInitializeResourceLite(&_resource); }
+  FORCEINLINE void destroy() { ExDeleteResourceLite(&_resource); }
 
-  FORCEINLINE void lock() { ExAcquireFastMutex(&_mutex); }
-  FORCEINLINE bool try_lock() { return TRUE == ExTryToAcquireFastMutex(&_mutex); }
-  FORCEINLINE void unlock() { ExReleaseFastMutex(&_mutex); }
+  FORCEINLINE NTSTATUS acquire() {
+    if (ExIsResourceAcquiredExclusiveLite(&_resource))
+      return STATUS_DEVICE_BUSY;
+    ExEnterCriticalRegionAndAcquireResourceExclusive(&_resource);
+    return STATUS_SUCCESS;
+  }
+
+  FORCEINLINE void release() { ExReleaseResourceAndLeaveCriticalRegion(&_resource); }
+};
+
+class wrapped_resource_lock {
+  wrapped_resource_mutex* _mutex{};
+  NTSTATUS _status;
+
+public:
+  FORCEINLINE explicit wrapped_resource_lock(wrapped_resource_mutex& mutex)
+    : _status(mutex.acquire()) {
+    if (NT_SUCCESS(_status))
+      _mutex = &mutex;
+  }
+
+  wrapped_resource_lock(const wrapped_resource_lock&) = delete;
+  wrapped_resource_lock& operator=(const wrapped_resource_lock&) = delete;
+
+  FORCEINLINE ~wrapped_resource_lock() {
+    if (_mutex)
+      _mutex->release();
+  }
+
+  FORCEINLINE NTSTATUS status() const { return _status; }
 };
 
 struct context {
@@ -505,7 +536,7 @@ struct context {
   amx64_loader* loader;
   const uint8_t* original_buf;
   size_t original_buf_size;
-  wrapped_fast_mutex mutex;
+  wrapped_resource_mutex mutex;
 };
 
 struct to_amx_callback_context {
@@ -519,12 +550,14 @@ static to_amx_callback_context s_to_amx_callback_data[k_to_amx_callback_count];
 
 static __declspec(noinline) cell to_amx_callback_dispatch(size_t idx, cell args) {
   if (KeGetCurrentIrql() > APC_LEVEL)
-    __fastfail(FAST_FAIL_INVALID_LOCK_STATE);
+    return (cell)(scell)STATUS_INVALID_DEVICE_STATE;
   const auto cb_ctx = &s_to_amx_callback_data[idx];
   const auto vm_ctx = cb_ctx->ctx;
   if (!vm_ctx)
     __fastfail(FAST_FAIL_INVALID_JUMP_BUFFER);
-  std::unique_lock lock{vm_ctx->mutex};
+  wrapped_resource_lock lock{vm_ctx->mutex};
+  if (!NT_SUCCESS(lock.status()))
+    return (cell)(scell)lock.status();
   const auto cip = cb_ctx->cip;
   if (!cip)
     __fastfail(FAST_FAIL_INVALID_JUMP_BUFFER);
@@ -840,29 +873,32 @@ static NTSTATUS vm_load_binary_internal(context** ctx, PVOID buffer, SIZE_T size
         memcpy(copy, buffer, size);
         my_ctx->original_buf = copy;
         my_ctx->original_buf_size = size;
-        my_ctx->mutex.init();
-        const auto loader = new(&my_ctx->loader_storage) amx64_loader();
-        my_ctx->loader = loader;
+        status = my_ctx->mutex.init();
+        if (NT_SUCCESS(status)) {
+          const auto loader = new(&my_ctx->loader_storage) amx64_loader();
+          my_ctx->loader = loader;
 
-        const amx64_loader::callbacks_arg callbacks
-        {
-          .natives = NATIVES,
-          .natives_count = std::size(NATIVES),
-          .on_single_step = nullptr,
-          .on_break = nullptr,
-          .user_data = my_ctx
-        };
+          const amx64_loader::callbacks_arg callbacks
+          {
+            .natives = NATIVES,
+            .natives_count = std::size(NATIVES),
+            .on_single_step = nullptr,
+            .on_break = nullptr,
+            .user_data = my_ctx
+          };
 
-        const auto result = loader->init(mem, len, callbacks);
+          const auto result = loader->init(mem, len, callbacks);
 
-        if (result != amx::loader_error::success) {
-          status = STATUS_UNSUCCESSFUL;
-        } else {
-          *ctx = my_ctx;
-          return STATUS_SUCCESS;
+          if (result != amx::loader_error::success) {
+            status = STATUS_UNSUCCESSFUL;
+          } else {
+            *ctx = my_ctx;
+            return STATUS_SUCCESS;
+          }
+
+          loader->~amx64_loader();
+          my_ctx->mutex.destroy();
         }
-
-        loader->~amx64_loader();
         ExFreePool(my_ctx);
       }
 
@@ -876,6 +912,7 @@ static NTSTATUS vm_destroy_internal(context* ctx) {
   const auto loader = ctx->loader;
   const auto copy = const_cast<uint8_t*>(ctx->original_buf);
   loader->~amx64_loader();
+  ctx->mutex.destroy();
   ExFreePool(ctx);
   ExFreePool(copy);
   return STATUS_SUCCESS;
@@ -890,14 +927,18 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
     return status;
 
   {
-    std::unique_lock lock{my_ctx->mutex};
-    status = vm_callback_created(my_ctx);
+    wrapped_resource_lock lock{my_ctx->mutex};
+    status = lock.status();
+    if (NT_SUCCESS(status))
+      status = vm_callback_created(my_ctx);
   }
   if (NT_SUCCESS(status)) {
     const auto loader = my_ctx->loader;
     if (const auto main = loader->get_main()) {
-      std::unique_lock lock{my_ctx->mutex};
-      status = vm_callback_precall(my_ctx, main);
+      wrapped_resource_lock lock{my_ctx->mutex};
+      status = lock.status();
+      if (NT_SUCCESS(status))
+        status = vm_callback_precall(my_ctx, main);
       if (NT_SUCCESS(status)) {
         cell ret{};
         const auto res = loader->amx.call(main, ret);
@@ -913,8 +954,9 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
 
   if (!NT_SUCCESS(status)) {
     {
-      std::unique_lock lock{my_ctx->mutex};
-      vm_callback_destroyed(my_ctx);
+      wrapped_resource_lock lock{my_ctx->mutex};
+      if (NT_SUCCESS(lock.status()))
+        vm_callback_destroyed(my_ctx);
     }
     vm_destroy_internal(my_ctx);
     return status;
@@ -959,8 +1001,9 @@ NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID o
   NTSTATUS status = STATUS_SUCCESS;
 
   {
-    std::unique_lock lock{my_ctx->mutex};
-    if (amx.mem.data().map(cell_in_buffer, cell_in_count, cell_in_va)) {
+    wrapped_resource_lock lock{my_ctx->mutex};
+    status = lock.status();
+    if (NT_SUCCESS(status) && amx.mem.data().map(cell_in_buffer, cell_in_count, cell_in_va)) {
       if (amx.mem.data().map(cell_out_buffer, cell_out_count, cell_out_va)) {
         status = vm_callback_precall(my_ctx, fn);
         if (NT_SUCCESS(status)) {
@@ -981,7 +1024,7 @@ NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID o
         status = STATUS_UNSUCCESSFUL;
       }
       amx.mem.data().unmap(cell_in_va, cell_in_count);
-    } else {
+    } else if (NT_SUCCESS(status)) {
       status = STATUS_UNSUCCESSFUL;
     }
   }
@@ -992,24 +1035,25 @@ NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID o
 NTSTATUS vm_destroy(PVOID ctx) {
   if (ctx) {
     const auto my_ctx = (context*)ctx;
-    const auto loader = my_ctx->loader;
-    const auto fn = loader->get_public("unload");
-    if (fn) {
-      std::unique_lock lock{my_ctx->mutex};
-      auto status = vm_callback_precall(my_ctx, fn);
-      if (NT_SUCCESS(status)) {
-        cell ret{};
-        loader->amx.call(fn, ret);
-        vm_callback_postcall(my_ctx);
-      }
-    }
     {
-      {
-        std::unique_lock lock{my_ctx->mutex};
-        vm_callback_destroyed(my_ctx);
+      wrapped_resource_lock lock{my_ctx->mutex};
+      if (!NT_SUCCESS(lock.status()))
+        return lock.status();
+
+      const auto loader = my_ctx->loader;
+      const auto fn = loader->get_public("unload");
+      if (fn) {
+        const auto status = vm_callback_precall(my_ctx, fn);
+        if (NT_SUCCESS(status)) {
+          cell ret{};
+          loader->amx.call(fn, ret);
+          vm_callback_postcall(my_ctx);
+        }
       }
-      return vm_destroy_internal(my_ctx);
+
+      vm_callback_destroyed(my_ctx);
     }
+    return vm_destroy_internal(my_ctx);
   }
 
   return STATUS_SUCCESS;

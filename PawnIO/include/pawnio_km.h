@@ -72,6 +72,9 @@ PAWNIO_PUBLICAPI const struct trusted_pubkey* pawnio_trusted_keys();
 /// Every registered creation callback is called even if an earlier one blocks
 /// the creation, so that all of them observe the same set of contexts. If any
 /// of them blocks, the VM is torn down and the destruction callbacks run.
+/// VM callbacks run synchronously at the IRQL of the VM entry. Device-control
+/// entries run at PASSIVE_LEVEL; generated Pawn callbacks can enter at
+/// APC_LEVEL. Callback code must be resident and obey the current IRQL.
 ///
 /// @param ctx Context pointer to the created VM.
 /// @return Status code indicating whether to block or allow the creation.

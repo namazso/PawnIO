@@ -47,6 +47,7 @@
 #pragma once
 
 void vm_init(PDRIVER_OBJECT driver_object);
+bool vm_owned_by_current_thread(PVOID ctx);
 NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size);
 NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID out_buffer, SIZE_T out_size);
 NTSTATUS vm_destroy(PVOID ctx);

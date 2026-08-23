@@ -1083,6 +1083,10 @@ NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID o
   return status;
 }
 
+bool vm_owned_by_current_thread(PVOID ctx) {
+  return ctx && static_cast<context*>(ctx)->mutex.owned_by_current_thread();
+}
+
 NTSTATUS vm_destroy(PVOID ctx) {
   if (ctx) {
     const auto my_ctx = (context*)ctx;

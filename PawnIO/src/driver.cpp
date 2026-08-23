@@ -64,6 +64,20 @@ static NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp);
 static NTSTATUS dispatch_pnp(PDEVICE_OBJECT device_object, PIRP irp);
 static NTSTATUS dispatch_power(PDEVICE_OBJECT device_object, PIRP irp);
 
+static PVOID read_file_context(PFILE_OBJECT file_object) {
+  return _InterlockedCompareExchangePointer(&file_object->FsContext, nullptr, nullptr);
+}
+
+static bool reserve_file_context(PFILE_OBJECT file_object) {
+  return nullptr == _InterlockedCompareExchangePointer(&file_object->FsContext2, file_object, nullptr);
+}
+
+static void release_file_context_reservation(PFILE_OBJECT file_object) {
+  const auto reservation = _InterlockedCompareExchangePointer(&file_object->FsContext2, nullptr, file_object);
+  NT_ASSERT(reservation == file_object);
+  UNREFERENCED_PARAMETER(reservation);
+}
+
 static void create_symlinks(PDEVICE_OBJECT pdo, device_extension* ext) {
   // Query the device name from the PDO stack to use as the symlink target
   WCHAR name_buf[256]{};
@@ -222,8 +236,8 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp) {
     break;
 
   case IRP_MJ_CLOSE:
-    if (irp_stack->FileObject->FsContext)
-      vm_destroy(irp_stack->FileObject->FsContext);
+    if (const auto ctx = _InterlockedExchangePointer(&irp_stack->FileObject->FsContext, nullptr))
+      vm_destroy(ctx);
     status = STATUS_SUCCESS;
     break;
 
@@ -235,27 +249,35 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp) {
 
     switch (irp_stack->Parameters.DeviceIoControl.IoControlCode) {
     case IOCTL_PIO_LOAD_BINARY:
-      if (irp_stack->FileObject->FsContext) {
+      if (read_file_context(irp_stack->FileObject)) {
         status = STATUS_ALREADY_INITIALIZED;
+      } else if (!reserve_file_context(irp_stack->FileObject)) {
+        status = STATUS_DEVICE_BUSY;
       } else {
-        PVOID new_ctx{};
-        status = vm_load_binary(
-          &new_ctx,
-          irp->AssociatedIrp.SystemBuffer,
-          irp_stack->Parameters.DeviceIoControl.InputBufferLength
-        );
-        if (NT_SUCCESS(status)) {
-          if (nullptr != _InterlockedCompareExchangePointer(&irp_stack->FileObject->FsContext, new_ctx, nullptr)) {
-            status = STATUS_UNSUCCESSFUL;
-            vm_destroy(new_ctx);
-            new_ctx = nullptr;
+        if (read_file_context(irp_stack->FileObject)) {
+          status = STATUS_ALREADY_INITIALIZED;
+        } else {
+          PVOID new_ctx{};
+          status = vm_load_binary(
+            &new_ctx,
+            irp->AssociatedIrp.SystemBuffer,
+            irp_stack->Parameters.DeviceIoControl.InputBufferLength
+          );
+          if (NT_SUCCESS(status)) {
+            if (nullptr != _InterlockedCompareExchangePointer(&irp_stack->FileObject->FsContext, new_ctx, nullptr)) {
+              status = STATUS_ALREADY_INITIALIZED;
+              vm_destroy(new_ctx);
+              new_ctx = nullptr;
+            }
           }
         }
+
+        release_file_context_reservation(irp_stack->FileObject);
       }
       break;
 
     case IOCTL_PIO_EXECUTE_FN:
-      if (!irp_stack->FileObject->FsContext) {
+      if (const auto ctx = read_file_context(irp_stack->FileObject); !ctx) {
         status = STATUS_INVALID_PARAMETER;
       } else {
         const auto in_length = irp_stack->Parameters.DeviceIoControl.InputBufferLength;
@@ -265,7 +287,7 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp) {
           RtlZeroMemory((PUCHAR)irp->AssociatedIrp.SystemBuffer + in_length, out_length - in_length);
 
         status = vm_execute_function(
-          irp_stack->FileObject->FsContext,
+          ctx,
           irp->AssociatedIrp.SystemBuffer,
           in_length,
           irp->AssociatedIrp.SystemBuffer,

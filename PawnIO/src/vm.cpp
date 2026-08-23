@@ -508,6 +508,10 @@ struct context {
   wrapped_fast_mutex mutex;
 };
 
+static NTSTATUS synchronous_status(NTSTATUS status) {
+  return status == STATUS_PENDING ? STATUS_INVALID_DEVICE_STATE : status;
+}
+
 struct to_amx_callback_context {
   context* ctx;
   cell cip;
@@ -885,19 +889,19 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
   *ctx = nullptr;
 
   context* my_ctx{};
-  auto status = vm_load_binary_internal(&my_ctx, buffer, size);
+  auto status = synchronous_status(vm_load_binary_internal(&my_ctx, buffer, size));
   if (!NT_SUCCESS(status))
     return status;
 
   {
     std::unique_lock lock{my_ctx->mutex};
-    status = vm_callback_created(my_ctx);
+    status = synchronous_status(vm_callback_created(my_ctx));
   }
   if (NT_SUCCESS(status)) {
     const auto loader = my_ctx->loader;
     if (const auto main = loader->get_main()) {
       std::unique_lock lock{my_ctx->mutex};
-      status = vm_callback_precall(my_ctx, main);
+      status = synchronous_status(vm_callback_precall(my_ctx, main));
       if (NT_SUCCESS(status)) {
         cell ret{};
         const auto res = loader->amx.call(main, ret);
@@ -906,7 +910,7 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
         if (res != amx::error::success)
           status = STATUS_UNSUCCESSFUL;
         else
-          status = (NTSTATUS)ret;
+          status = synchronous_status((NTSTATUS)ret);
       }
     }
   }
@@ -962,7 +966,7 @@ NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID o
     std::unique_lock lock{my_ctx->mutex};
     if (amx.mem.data().map(cell_in_buffer, cell_in_count, cell_in_va)) {
       if (amx.mem.data().map(cell_out_buffer, cell_out_count, cell_out_va)) {
-        status = vm_callback_precall(my_ctx, fn);
+        status = synchronous_status(vm_callback_precall(my_ctx, fn));
         if (NT_SUCCESS(status)) {
           amx64::cell out{};
           const auto DAT = loader->amx.DAT;
@@ -972,7 +976,7 @@ NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID o
             DbgPrint("[PawnIO] Call to %s failed: %X\n", arr, ret);
             status = STATUS_UNSUCCESSFUL;
           } else {
-            status = (NTSTATUS)out;
+            status = synchronous_status((NTSTATUS)out);
           }
         }
 

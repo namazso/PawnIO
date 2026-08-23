@@ -295,6 +295,11 @@ NTSTATUS dispatch_irp(PDEVICE_OBJECT device_object, PIRP irp) {
     break;
   }
 
+  if (status == STATUS_PENDING) {
+    status = STATUS_INVALID_DEVICE_STATE;
+    irp->IoStatus.Information = 0;
+  }
+
   irp->IoStatus.Status = status;
 
   IoCompleteRequest(irp, IO_NO_INCREMENT);

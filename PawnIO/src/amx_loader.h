@@ -492,7 +492,7 @@ namespace amx {
                                 + align_up(natives_count * sizeof(*_natives_ptr), MEMORY_ALLOCATION_ALIGNMENT)
                                 + string_buffer_size;
 
-      const auto alloc = ExAllocatePoolZero(NonPagedPoolNxCacheAligned, alloc_size, 'LxmA');
+      const auto alloc = ExAllocatePoolZero(NonPagedPoolNx, alloc_size, 'LxmA');
       if (!alloc)
         return loader_error::out_of_memory;
 
@@ -544,7 +544,7 @@ namespace amx {
 
           char* name = string_buffer;
           string_buffer += nameend - nameofs + 1;
-          memcpy(name, buf + nameofs, nameend - nameofs);
+          memcpy(name, buf + nameofs, nameend - nameofs + 1);
 
           publics_ptr[publics_counter++] = {name, address};
           return true;
@@ -598,7 +598,7 @@ namespace amx {
 
           char* name = string_buffer;
           string_buffer += nameend - nameofs + 1;
-          memcpy(name, buf + nameofs, nameend - nameofs);
+          memcpy(name, buf + nameofs, nameend - nameofs + 1);
 
           pubvars_ptr[pubvars_counter++] = {name, address};
           return true;

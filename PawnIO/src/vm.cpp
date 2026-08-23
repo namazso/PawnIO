@@ -828,12 +828,12 @@ static NTSTATUS vm_load_binary_internal(context** ctx, PVOID buffer, SIZE_T size
 
   if (NT_SUCCESS(status)) {
     // extra copy
-    const auto copy = (uint8_t*)ExAllocatePoolZero(NonPagedPoolNxCacheAligned, size, 'cpmA');
+    const auto copy = (uint8_t*)ExAllocatePoolZero(NonPagedPoolNx, size, 'cpmA');
     if (!copy) {
       status = STATUS_NO_MEMORY;
     } else {
       // load
-      const auto my_ctx = (context*)ExAllocatePoolZero(NonPagedPoolNxCacheAligned, sizeof(context), 'OIwP');
+      const auto my_ctx = (context*)ExAllocatePoolZero(NonPagedPoolNx, sizeof(context), 'OIwP');
       if (!my_ctx) {
         status = STATUS_NO_MEMORY;
       } else {

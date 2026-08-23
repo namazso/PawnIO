@@ -142,6 +142,8 @@ static void driver_unload(PDRIVER_OBJECT driver_object) {
 }
 
 EXTERN_C NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object, PUNICODE_STRING registry_path) {
+  ExInitializeDriverRuntime(0);
+
   UNREFERENCED_PARAMETER(registry_path);
 
   auto status = vm_callback_init();

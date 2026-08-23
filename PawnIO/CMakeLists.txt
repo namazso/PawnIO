@@ -19,6 +19,10 @@ target_link_libraries(PawnIO PawnIOInclude PawnPP WDK::KSECDD)
 
 target_precompile_headers(PawnIO PRIVATE src/stdafx.h)
 
+target_compile_definitions(PawnIO PRIVATE
+        POOL_ZERO_DOWN_LEVEL_SUPPORT
+)
+
 target_compile_options(PawnIO PRIVATE
         /utf-8
         /guard:ehcont

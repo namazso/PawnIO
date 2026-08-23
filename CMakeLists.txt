@@ -58,7 +58,9 @@ set(SIGN_SCRIPT "" CACHE STRING "Signing script, called like <script> <input> <o
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_compile_definitions(
+add_library(PawnIOBuildInfo INTERFACE)
+
+target_compile_definitions(PawnIOBuildInfo INTERFACE
         PAWNIO_NAME="${PAWNIO_NAME}"
         PAWNIO_NAME_FULL="${PAWNIO_NAME_FULL}"
         PAWNIO_AUTHOR="${PAWNIO_AUTHOR}"
@@ -69,13 +71,13 @@ add_compile_definitions(
         PAWNIO_PATCH=${PROJECT_VERSION_PATCH}
 )
 
-add_compile_options(
-        /W4
-        /WX
-        /utf-8
-        /d1nodatetime
-        /Brepro
-        /Zi
+target_compile_options(PawnIOBuildInfo INTERFACE
+        "$<$<COMPILE_LANGUAGE:CXX>:/W4>"
+        "$<$<COMPILE_LANGUAGE:CXX>:/WX>"
+        "$<$<COMPILE_LANGUAGE:CXX>:/utf-8>"
+        "$<$<COMPILE_LANGUAGE:CXX>:/d1nodatetime>"
+        "$<$<COMPILE_LANGUAGE:CXX>:/Brepro>"
+        "$<$<COMPILE_LANGUAGE:CXX>:/Zi>"
 )
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -89,10 +91,10 @@ add_link_options(
         /EMITPOGOPHASEINFO
         /FILEALIGN:0x1000
         $<$<STREQUAL:"${WDK_PLATFORM}","x64">:/CETCOMPAT>
-        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/BREPRO>
-        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/NOVCFEATURE>
-        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/NOCOFFGRPINFO>
-        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/PDBALTPATH:%_PDB%>
+        $<$<NOT:$<CONFIG:Debug>>:/BREPRO>
+        $<$<NOT:$<CONFIG:Debug>>:/NOVCFEATURE>
+        $<$<NOT:$<CONFIG:Debug>>:/NOCOFFGRPINFO>
+        $<$<NOT:$<CONFIG:Debug>>:/PDBALTPATH:%_PDB%>
 )
 
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "ProgramDatabase")
@@ -128,7 +130,7 @@ add_library(PawnIOLib SHARED
 
 target_compile_options(PawnIOLib PRIVATE /EHsc)
 
-target_link_libraries(PawnIOLib PRIVATE ntdll.lib PawnIOInclude)
+target_link_libraries(PawnIOLib PRIVATE ntdll.lib PawnIOInclude PawnIOBuildInfo)
 
 target_link_options(PawnIOLib PRIVATE
         /ENTRY:DllEntry
@@ -146,4 +148,4 @@ add_executable(PawnIOUtil
 
 target_compile_options(PawnIOUtil PRIVATE /EHsc)
 
-target_link_libraries(PawnIOUtil PRIVATE PawnIOLib)
+target_link_libraries(PawnIOUtil PRIVATE PawnIOLib PawnIOBuildInfo)

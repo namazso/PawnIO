@@ -1,11 +1,24 @@
+if (MSVC)
+    # CMake enables /RTC1 in Debug by default, but its user-mode support
+    # routines are unavailable to kernel drivers.
+    string(REGEX REPLACE "(^| )[/-]RTC1( |$)" " " CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+endif ()
+
+set(PAWNIO_ARCH_SOURCES)
+if (WDK_PLATFORM STREQUAL "x64")
+    add_library(PawnIOAsm OBJECT src/x64.asm)
+    list(APPEND PAWNIO_ARCH_SOURCES $<TARGET_OBJECTS:PawnIOAsm>)
+elseif (WDK_PLATFORM STREQUAL "arm64")
+    list(APPEND PAWNIO_ARCH_SOURCES src/msrmrs.cpp)
+endif ()
+
 wdk_add_driver(PawnIO
         src/callbacks.cpp
         src/driver.cpp
         src/natives_impl_windows.cpp
         src/signature.cpp
         src/vm.cpp
-        $<$<STREQUAL:"${WDK_PLATFORM}","arm64">:src/msrmrs.cpp>
-        $<$<STREQUAL:"${WDK_PLATFORM}","x64">:src/x64.asm>
+        ${PAWNIO_ARCH_SOURCES}
 
         src/resource.rc
 )
@@ -15,16 +28,16 @@ set_target_properties(PawnIO PROPERTIES ENABLE_EXPORTS ON)
 add_library(PawnIOInclude INTERFACE)
 target_include_directories(PawnIOInclude INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_link_libraries(PawnIO PawnIOInclude PawnPP WDK::KSECDD)
+target_link_libraries(PawnIO PawnIOInclude PawnPP PawnIOBuildInfo WDK::KSECDD)
 
 target_precompile_headers(PawnIO PRIVATE src/stdafx.h)
 
 target_compile_options(PawnIO PRIVATE
-        /utf-8
-        /guard:ehcont
-        /d1nodatetime
-        /Brepro
-        /Zi
+        $<$<COMPILE_LANGUAGE:CXX>:/utf-8>
+        $<$<COMPILE_LANGUAGE:CXX>:/guard:ehcont>
+        $<$<COMPILE_LANGUAGE:CXX>:/d1nodatetime>
+        $<$<COMPILE_LANGUAGE:CXX>:/Brepro>
+        $<$<COMPILE_LANGUAGE:CXX>:/Zi>
         $<$<COMPILE_LANGUAGE:CXX>:/W4>
         $<$<COMPILE_LANGUAGE:CXX>:/WX>
 )
@@ -38,10 +51,10 @@ target_link_options(PawnIO PRIVATE
         /INTEGRITYCHECK
         /FILEALIGN:0x1000
         $<$<STREQUAL:"${WDK_PLATFORM}","x64">:/CETCOMPAT>
-        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/BREPRO>
-        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/NOVCFEATURE>
-        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/NOCOFFGRPINFO>
-        $<$<NOT:$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">>:/PDBALTPATH:%_PDB%>
+        $<$<NOT:$<CONFIG:Debug>>:/BREPRO>
+        $<$<NOT:$<CONFIG:Debug>>:/NOVCFEATURE>
+        $<$<NOT:$<CONFIG:Debug>>:/NOCOFFGRPINFO>
+        $<$<NOT:$<CONFIG:Debug>>:/PDBALTPATH:%_PDB%>
 )
 
 if (PAWNIO_UNRESTRICTED)

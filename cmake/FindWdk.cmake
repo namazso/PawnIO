@@ -140,16 +140,26 @@ foreach(LIBRARY IN LISTS WDK_LIBRARIES)
 endforeach(LIBRARY)
 unset(WDK_LIBRARIES)
 
+function(wdk_set_compile_settings _target)
+    foreach(OPTION IN LISTS WDK_COMPILE_FLAGS)
+        target_compile_options(${_target} PRIVATE "$<$<COMPILE_LANGUAGE:C,CXX>:${OPTION}>")
+    endforeach()
+    foreach(DEFINITION IN LISTS WDK_COMPILE_DEFINITIONS)
+        target_compile_definitions(${_target} PRIVATE "$<$<COMPILE_LANGUAGE:C,CXX>:${DEFINITION}>")
+    endforeach()
+    foreach(DEFINITION IN LISTS WDK_COMPILE_DEFINITIONS_DEBUG)
+        target_compile_definitions(${_target} PRIVATE "$<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:C,CXX>>:${DEFINITION}>")
+    endforeach()
+    target_compile_definitions(${_target} PRIVATE "$<$<COMPILE_LANGUAGE:C,CXX>:_WIN32_WINNT=${WDK_WINVER}>")
+endfunction()
+
 function(wdk_add_driver _target)
     cmake_parse_arguments(WDK "" "KMDF;WINVER;NTDDI_VERSION" "" ${ARGN})
 
     add_executable(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
     set_target_properties(${_target} PROPERTIES SUFFIX ".sys")
-    set_target_properties(${_target} PROPERTIES COMPILE_OPTIONS "${WDK_COMPILE_FLAGS}")
-    set_target_properties(${_target} PROPERTIES COMPILE_DEFINITIONS
-        "${WDK_COMPILE_DEFINITIONS};$<$<CONFIG:Debug>:${WDK_COMPILE_DEFINITIONS_DEBUG}>;_WIN32_WINNT=${WDK_WINVER}"
-        )
+    wdk_set_compile_settings(${_target})
     set_target_properties(${_target} PROPERTIES LINK_FLAGS "${WDK_LINK_FLAGS}")
     if(WDK_NTDDI_VERSION)
         target_compile_definitions(${_target} PRIVATE NTDDI_VERSION=${WDK_NTDDI_VERSION})
@@ -203,10 +213,7 @@ function(wdk_add_library _target)
 
     add_library(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
-    set_target_properties(${_target} PROPERTIES COMPILE_OPTIONS "${WDK_COMPILE_FLAGS}")
-    set_target_properties(${_target} PROPERTIES COMPILE_DEFINITIONS
-        "${WDK_COMPILE_DEFINITIONS};$<$<CONFIG:Debug>:${WDK_COMPILE_DEFINITIONS_DEBUG};>_WIN32_WINNT=${WDK_WINVER}"
-        )
+    wdk_set_compile_settings(${_target})
     if(WDK_NTDDI_VERSION)
         target_compile_definitions(${_target} PRIVATE NTDDI_VERSION=${WDK_NTDDI_VERSION})
     endif()

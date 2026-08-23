@@ -78,10 +78,31 @@ PAWNIO_PUBLICAPI const struct trusted_pubkey* pawnio_trusted_keys();
 typedef NTSTATUS pawnio_vm_callback_created(PVOID ctx);
 typedef pawnio_vm_callback_created* ppawnio_vm_callback_created;
 
+/// @par Callback registration rules
+/// Registration and unregistration are supported at IRQL <= APC_LEVEL. A
+/// callback can register or unregister callbacks; PawnIO does not hold its
+/// registry lock while calling external code. Cookies are opaque and are only
+/// valid for the matching unregister routine. Null, stale, duplicate,
+/// arbitrary, and wrong-kind cookies are ignored.
+///
+/// The callback and all code and data it uses must be nonpaged. PawnIO can
+/// invoke it at any IRQL up to APC_LEVEL, and it must obey the IRQL at which it
+/// is called.
+///
+/// The first successful unregistration outside a PawnIO callback is
+/// synchronous: it does not return until invocations of that registration
+/// have finished. The cookie becomes invalid as soon as unregistration
+/// begins, so later duplicate calls are ignored and do not join that wait.
+/// When called from a PawnIO callback, unregistration prevents new invocations
+/// immediately and defers reclamation until in-flight invocations finish.
+/// This avoids deadlocking on self-unregistration or cyclic
+/// cross-unregistration.
+///
 /// Registers a callback that will be called when a VM is created.
 /// 
-/// @param callback Pointer to the callback function.
-/// @return Cookie that can be used to unregister the callback.
+/// @param callback Non-null pointer to the callback function.
+/// @return Cookie that can be used to unregister the callback, or NULL if the
+///         callback is null, allocation fails, or PawnIO is shutting down.
 PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_created(ppawnio_vm_callback_created callback);
 
 /// Unregisters a previously registered VM creation callback.
@@ -99,8 +120,9 @@ typedef pawnio_vm_callback_precall* ppawnio_vm_callback_precall;
 
 /// Registers a callback that will be called before a VM function is executed.
 /// 
-/// @param callback Pointer to the callback function.
-/// @return Cookie that can be used to unregister the callback.
+/// @param callback Non-null pointer to the callback function.
+/// @return Cookie that can be used to unregister the callback, or NULL on
+///         failure.
 PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_precall(ppawnio_vm_callback_precall callback);
 
 /// Unregisters a previously registered pre-call callback.
@@ -116,8 +138,9 @@ typedef pawnio_vm_callback_postcall* ppawnio_vm_callback_postcall;
 
 /// Registers a callback that will be called after a VM function is executed.
 /// 
-/// @param callback Pointer to the callback function.
-/// @return Cookie that can be used to unregister the callback.
+/// @param callback Non-null pointer to the callback function.
+/// @return Cookie that can be used to unregister the callback, or NULL on
+///         failure.
 PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_postcall(ppawnio_vm_callback_postcall callback);
 
 /// Unregisters a previously registered post-call callback.
@@ -136,8 +159,9 @@ typedef pawnio_vm_callback_destroyed* ppawnio_vm_callback_destroyed;
 
 /// Registers a callback that will be called when a VM is destroyed.
 /// 
-/// @param callback Pointer to the callback function.
-/// @return Cookie that can be used to unregister the callback.
+/// @param callback Non-null pointer to the callback function.
+/// @return Cookie that can be used to unregister the callback, or NULL on
+///         failure.
 PAWNIO_PUBLICAPI PVOID pawnio_register_vm_callback_destroyed(ppawnio_vm_callback_destroyed callback);
 
 /// Unregisters a previously registered VM destruction callback.

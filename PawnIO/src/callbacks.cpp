@@ -46,200 +46,429 @@
 
 #include "callbacks.h"
 
-#include "klist.h"
-#include "uninitialized_storage.h"
+namespace {
 
-class wrapped_resource {
-  ERESOURCE _resource{};
-
-public:
-  FORCEINLINE NTSTATUS init() { return ExInitializeResourceLite(&_resource); }
-  FORCEINLINE NTSTATUS destroy() { return ExDeleteResourceLite(&_resource); }
-
-  FORCEINLINE void lock() {
-    KeEnterCriticalRegion();
-    ExAcquireResourceExclusiveLite(&_resource, TRUE);
-  }
-
-  FORCEINLINE bool try_lock() {
-    KeEnterCriticalRegion();
-    if (TRUE == ExAcquireResourceExclusiveLite(&_resource, FALSE))
-      return true;
-    KeLeaveCriticalRegion();
-    return false;
-  }
-
-  FORCEINLINE void unlock() {
-    ExReleaseResourceLite(&_resource);
-    KeLeaveCriticalRegion();
-  }
-
-  FORCEINLINE void lock_shared() {
-    KeEnterCriticalRegion();
-    ExAcquireResourceSharedLite(&_resource, TRUE);
-  }
-
-  FORCEINLINE bool try_lock_shared() {
-    KeEnterCriticalRegion();
-    if (TRUE == ExAcquireResourceSharedLite(&_resource, FALSE))
-      return true;
-    KeLeaveCriticalRegion();
-    return false;
-  }
-
-  FORCEINLINE void unlock_shared() {
-    ExReleaseResourceLite(&_resource);
-    KeLeaveCriticalRegion();
-  }
+enum class callback_kind : UCHAR {
+  created,
+  precall,
+  postcall,
+  destroyed,
 };
 
-template <typename Callback>
-struct callback_list : std::false_type {};
+constexpr ULONG callback_kind_count = 4;
+constexpr ULONG callback_pool_tag = 'bCwP';
 
-template <typename Ret, typename... Args>
-struct callback_list<Ret(*)(Args...)> {
-  using callback_t = Ret(*)(Args...);
-  wrapped_resource res{};
-  uninitialized_storage<klist<callback_t>> list{};
+union callback_function {
+  ppawnio_vm_callback_created created;
+  ppawnio_vm_callback_precall precall;
+  ppawnio_vm_callback_postcall postcall;
+  ppawnio_vm_callback_destroyed destroyed;
+};
 
-  FORCEINLINE constexpr callback_list() = default;
+enum class reclaim_mode : LONG {
+  active,
+  synchronous,
+  deferred,
+};
 
-  FORCEINLINE NTSTATUS init() {
-    list.construct();
-    return res.init();
+struct callback_registration {
+  LIST_ENTRY link;
+  KEVENT references_released;
+  callback_function callback;
+  ULONG_PTR sequence;
+  PVOID cookie;
+  callback_kind kind;
+  volatile LONG references;
+  volatile LONG reclaim;
+};
+
+struct callback_frame {
+  LIST_ENTRY link;
+  PETHREAD thread;
+};
+
+ERESOURCE s_registry_lock{};
+EX_RUNDOWN_REF s_api_rundown{};
+LIST_ENTRY s_active[callback_kind_count]{};
+LIST_ENTRY s_callback_frames{};
+ULONG_PTR s_next_sequence = 0;
+volatile LONG s_initialized = 0;
+bool s_closing = false;
+
+FORCEINLINE ULONG kind_index(callback_kind kind) {
+  return static_cast<ULONG>(kind);
+}
+
+FORCEINLINE void lock_registry() {
+  KeEnterCriticalRegion();
+  (void)ExAcquireResourceExclusiveLite(&s_registry_lock, TRUE);
+}
+
+FORCEINLINE void unlock_registry() {
+  ExReleaseResourceLite(&s_registry_lock);
+  KeLeaveCriticalRegion();
+}
+
+bool acquire_api_rundown() {
+  if (InterlockedCompareExchange(&s_initialized, 0, 0) == 0)
+    return false;
+
+  if (!ExAcquireRundownProtection(&s_api_rundown))
+    return false;
+
+  if (InterlockedCompareExchange(&s_initialized, 0, 0) != 0)
+    return true;
+
+  ExReleaseRundownProtection(&s_api_rundown);
+  return false;
+}
+
+class api_guard {
+  bool _acquired;
+
+public:
+  FORCEINLINE api_guard() : _acquired(acquire_api_rundown()) {}
+  FORCEINLINE ~api_guard() {
+    if (_acquired)
+      ExReleaseRundownProtection(&s_api_rundown);
   }
 
-  FORCEINLINE void destroy() {
-    res.destroy();
-    list.destroy();
-  }
+  api_guard(const api_guard&) = delete;
+  api_guard& operator=(const api_guard&) = delete;
 
-  FORCEINLINE PVOID add(callback_t callback) {
-    std::unique_lock lock{res};
-    auto& l = list.get();
-    auto it = l.emplace_front(callback);
-    if (it == l.end())
-      return nullptr;
-    return it.as_entry();
-  }
+  FORCEINLINE explicit operator bool() const { return _acquired; }
+};
 
-  FORCEINLINE void remove(PVOID cookie) {
-    if (!cookie)
-      return;
-    std::unique_lock lock{res};
-    auto& l = list.get();
-    l.erase(l.citer_from_entry((PLIST_ENTRY)cookie));
+callback_registration* find_registration_locked(callback_kind kind, PVOID cookie) {
+  auto* const head = &s_active[kind_index(kind)];
+  for (auto* link = head->Flink; link != head; link = link->Flink) {
+    auto* const registration = CONTAINING_RECORD(link, callback_registration, link);
+    if (registration->cookie == cookie)
+      return registration;
   }
+  return nullptr;
+}
 
-  FORCEINLINE NTSTATUS call_status(Args... args)
-    requires(std::is_same_v<Ret, NTSTATUS>) {
-    std::shared_lock lock{res};
-    NTSTATUS status = STATUS_SUCCESS;
-    for (const auto cb : list.get()) {
-      status = cb(std::forward<Args>(args)...);
+bool has_callback_frame_locked(PETHREAD thread) {
+  for (auto* link = s_callback_frames.Flink;
+       link != &s_callback_frames;
+       link = link->Flink) {
+    const auto* const frame = CONTAINING_RECORD(link, callback_frame, link);
+    if (frame->thread == thread)
+      return true;
+  }
+  return false;
+}
+
+void move_all_locked(PLIST_ENTRY source, PLIST_ENTRY destination) {
+  while (!IsListEmpty(source)) {
+    auto* const link = RemoveHeadList(source);
+    InsertTailList(destination, link);
+  }
+}
+
+void drain_registrations(PLIST_ENTRY registrations) {
+  while (!IsListEmpty(registrations)) {
+    auto* const link = RemoveHeadList(registrations);
+    auto* const registration = CONTAINING_RECORD(link, callback_registration, link);
+    NT_ASSERT(InterlockedCompareExchange(&registration->references, 0, 0) == 1);
+    ExFreePoolWithTag(registration, callback_pool_tag);
+  }
+}
+
+void release_callback_reference(callback_registration* registration) {
+  if (InterlockedDecrement(&registration->references) != 0)
+    return;
+
+  const auto mode = static_cast<reclaim_mode>(
+      InterlockedCompareExchange(&registration->reclaim, 0, 0));
+  NT_ASSERT(mode != reclaim_mode::active);
+  if (mode == reclaim_mode::synchronous) {
+    KeSetEvent(&registration->references_released, IO_NO_INCREMENT, FALSE);
+  } else if (mode == reclaim_mode::deferred) {
+    ExFreePoolWithTag(registration, callback_pool_tag);
+  }
+}
+
+callback_registration* acquire_next_registration(
+    callback_kind kind,
+    ULONG_PTR ceiling,
+    ULONG_PTR cursor,
+    callback_frame& frame) {
+  callback_registration* selected = nullptr;
+
+  lock_registry();
+  auto* const head = &s_active[kind_index(kind)];
+  for (auto* link = head->Flink; link != head; link = link->Flink) {
+    auto* const registration = CONTAINING_RECORD(link, callback_registration, link);
+    if (registration->sequence > ceiling || registration->sequence >= cursor)
+      continue;
+    InterlockedIncrement(&registration->references);
+    frame.thread = PsGetCurrentThread();
+    InsertTailList(&s_callback_frames, &frame.link);
+    selected = registration;
+    break;
+  }
+  unlock_registry();
+
+  return selected;
+}
+
+void finish_callback(callback_registration* registration, callback_frame& frame) {
+  lock_registry();
+  RemoveEntryList(&frame.link);
+  unlock_registry();
+
+  release_callback_reference(registration);
+}
+
+ULONG_PTR capture_sequence() {
+  lock_registry();
+  const auto sequence = s_next_sequence;
+  unlock_registry();
+  return sequence;
+}
+
+template <typename Invoke>
+NTSTATUS call_status(callback_kind kind, bool call_all, Invoke&& invoke) {
+  api_guard guard;
+  if (!guard)
+    return STATUS_DELETE_PENDING;
+
+  const auto ceiling = capture_sequence();
+  auto cursor = ceiling + 1;
+  NTSTATUS status = STATUS_SUCCESS;
+
+  for (;;) {
+    callback_frame frame{};
+    auto* const registration =
+        acquire_next_registration(kind, ceiling, cursor, frame);
+    if (!registration)
+      break;
+
+    cursor = registration->sequence;
+    const auto result = invoke(registration->callback);
+    finish_callback(registration, frame);
+
+    if (call_all) {
+      if (NT_SUCCESS(status))
+        status = result;
+    } else {
+      status = result;
       if (!NT_SUCCESS(status))
         break;
     }
-    return status;
   }
 
-  FORCEINLINE NTSTATUS call_status_all(Args... args)
-    requires(std::is_same_v<Ret, NTSTATUS>) {
-    std::shared_lock lock{res};
-    NTSTATUS status = STATUS_SUCCESS;
-    for (const auto cb : list.get()) {
-      const auto result = cb(std::forward<Args>(args)...);
-      if (NT_SUCCESS(status))
-        status = result;
-    }
-    return status;
-  }
-
-  FORCEINLINE void call_void(Args... args)
-    requires(std::is_same_v<Ret, void>) {
-    std::shared_lock lock{res};
-    for (const auto cb : list.get()) {
-      cb(std::forward<Args>(args)...);
-    }
-  }
-};
-
-static constinit callback_list<ppawnio_vm_callback_created> s_created;
-static constinit callback_list<ppawnio_vm_callback_precall> s_precall;
-static constinit callback_list<ppawnio_vm_callback_postcall> s_postcall;
-static constinit callback_list<ppawnio_vm_callback_destroyed> s_destroyed;
-
-NTSTATUS vm_callback_init() {
-  auto status = s_created.init();
-  if (NT_SUCCESS(status)) {
-    status = s_precall.init();
-    if (NT_SUCCESS(status)) {
-      status = s_postcall.init();
-      if (NT_SUCCESS(status)) {
-        status = s_destroyed.init();
-        if (NT_SUCCESS(status)) {
-          return STATUS_SUCCESS;
-        }
-        s_postcall.destroy();
-      }
-      s_precall.destroy();
-    }
-    s_created.destroy();
-  }
   return status;
 }
 
+template <typename Invoke>
+void call_void(callback_kind kind, Invoke&& invoke) {
+  api_guard guard;
+  if (!guard)
+    return;
+
+  const auto ceiling = capture_sequence();
+  auto cursor = ceiling + 1;
+
+  for (;;) {
+    callback_frame frame{};
+    auto* const registration =
+        acquire_next_registration(kind, ceiling, cursor, frame);
+    if (!registration)
+      break;
+
+    cursor = registration->sequence;
+    invoke(registration->callback);
+    finish_callback(registration, frame);
+  }
+}
+
+PVOID register_callback(callback_kind kind, callback_function callback) {
+  api_guard guard;
+  if (!guard)
+    return nullptr;
+
+  auto* const registration = static_cast<callback_registration*>(
+      ExAllocatePoolZero(NonPagedPoolNx, sizeof(callback_registration), callback_pool_tag));
+  if (!registration)
+    return nullptr;
+
+  KeInitializeEvent(&registration->references_released, NotificationEvent, FALSE);
+  registration->callback = callback;
+  registration->kind = kind;
+  registration->references = 1;
+  registration->reclaim = static_cast<LONG>(reclaim_mode::active);
+
+  lock_registry();
+  constexpr auto max_sequence = (~static_cast<ULONG_PTR>(0)) >> 3;
+  if (s_closing || s_next_sequence == max_sequence) {
+    unlock_registry();
+    ExFreePoolWithTag(registration, callback_pool_tag);
+    return nullptr;
+  }
+
+  registration->sequence = ++s_next_sequence;
+  registration->cookie = reinterpret_cast<PVOID>(
+      (registration->sequence << 3) |
+      (static_cast<ULONG_PTR>(kind_index(kind)) + 1));
+  InsertHeadList(&s_active[kind_index(kind)], &registration->link);
+  unlock_registry();
+
+  return registration->cookie;
+}
+
+void unregister_callback(callback_kind kind, PVOID cookie) {
+  if (!cookie)
+    return;
+
+  api_guard guard;
+  if (!guard)
+    return;
+
+  callback_registration* registration = nullptr;
+  bool deferred = false;
+
+  lock_registry();
+  registration = find_registration_locked(kind, cookie);
+  if (registration) {
+    RemoveEntryList(&registration->link);
+    deferred = has_callback_frame_locked(PsGetCurrentThread());
+    registration->reclaim = static_cast<LONG>(
+        deferred ? reclaim_mode::deferred : reclaim_mode::synchronous);
+  }
+  unlock_registry();
+
+  if (registration && deferred) {
+    if (InterlockedDecrement(&registration->references) == 0)
+      ExFreePoolWithTag(registration, callback_pool_tag);
+  } else if (registration) {
+    if (InterlockedDecrement(&registration->references) != 0) {
+      (void)KeWaitForSingleObject(
+          &registration->references_released,
+          Executive,
+          KernelMode,
+          FALSE,
+          nullptr);
+    }
+    ExFreePoolWithTag(registration, callback_pool_tag);
+  }
+}
+
+} // namespace
+
+NTSTATUS vm_callback_init() {
+  const auto status = ExInitializeResourceLite(&s_registry_lock);
+  if (!NT_SUCCESS(status))
+    return status;
+
+  for (auto& list : s_active)
+    InitializeListHead(&list);
+  InitializeListHead(&s_callback_frames);
+  ExInitializeRundownProtection(&s_api_rundown);
+  s_next_sequence = 0;
+  s_closing = false;
+  InterlockedExchange(&s_initialized, 1);
+  return STATUS_SUCCESS;
+}
+
 void vm_callback_destroy() {
-  s_created.destroy();
-  s_precall.destroy();
-  s_postcall.destroy();
-  s_destroyed.destroy();
+  if (InterlockedCompareExchange(&s_initialized, 0, 0) == 0)
+    return;
+
+  lock_registry();
+  if (s_closing) {
+    unlock_registry();
+    return;
+  }
+  s_closing = true;
+  InterlockedExchange(&s_initialized, 0);
+  unlock_registry();
+
+  ExWaitForRundownProtectionRelease(&s_api_rundown);
+
+  LIST_ENTRY registrations;
+  InitializeListHead(&registrations);
+
+  lock_registry();
+  NT_ASSERT(IsListEmpty(&s_callback_frames));
+  for (auto& list : s_active)
+    move_all_locked(&list, &registrations);
+  unlock_registry();
+
+  drain_registrations(&registrations);
+  (void)ExDeleteResourceLite(&s_registry_lock);
 }
 
 NTSTATUS vm_callback_created(PVOID ctx) {
-  return s_created.call_status_all(ctx);
+  return call_status(callback_kind::created, true, [ctx](const callback_function& callback) {
+    return callback.created(ctx);
+  });
 }
 
 NTSTATUS vm_callback_precall(PVOID ctx, UINT_PTR cip) {
-  return s_precall.call_status(ctx, cip);
+  return call_status(callback_kind::precall, false, [ctx, cip](const callback_function& callback) {
+    return callback.precall(ctx, cip);
+  });
 }
 
 void vm_callback_postcall(PVOID ctx) {
-  s_postcall.call_void(ctx);
+  call_void(callback_kind::postcall, [ctx](const callback_function& callback) {
+    callback.postcall(ctx);
+  });
 }
 
 void vm_callback_destroyed(PVOID ctx) {
-  s_destroyed.call_void(ctx);
+  call_void(callback_kind::destroyed, [ctx](const callback_function& callback) {
+    callback.destroyed(ctx);
+  });
 }
 
 PVOID pawnio_register_vm_callback_created(ppawnio_vm_callback_created callback) {
-  return s_created.add(callback);
+  if (!callback)
+    return nullptr;
+  callback_function function{};
+  function.created = callback;
+  return register_callback(callback_kind::created, function);
 }
 
 void pawnio_unregister_vm_callback_created(PVOID cookie) {
-  s_created.remove(cookie);
+  unregister_callback(callback_kind::created, cookie);
 }
 
 PVOID pawnio_register_vm_callback_precall(ppawnio_vm_callback_precall callback) {
-  return s_precall.add(callback);
+  if (!callback)
+    return nullptr;
+  callback_function function{};
+  function.precall = callback;
+  return register_callback(callback_kind::precall, function);
 }
 
 void pawnio_unregister_vm_callback_precall(PVOID cookie) {
-  s_precall.remove(cookie);
+  unregister_callback(callback_kind::precall, cookie);
 }
 
 PVOID pawnio_register_vm_callback_postcall(ppawnio_vm_callback_postcall callback) {
-  return s_postcall.add(callback);
+  if (!callback)
+    return nullptr;
+  callback_function function{};
+  function.postcall = callback;
+  return register_callback(callback_kind::postcall, function);
 }
 
 void pawnio_unregister_vm_callback_postcall(PVOID cookie) {
-  s_postcall.remove(cookie);
+  unregister_callback(callback_kind::postcall, cookie);
 }
 
 PVOID pawnio_register_vm_callback_destroyed(ppawnio_vm_callback_destroyed callback) {
-  return s_destroyed.add(callback);
+  if (!callback)
+    return nullptr;
+  callback_function function{};
+  function.destroyed = callback;
+  return register_callback(callback_kind::destroyed, function);
 }
 
 void pawnio_unregister_vm_callback_destroyed(PVOID cookie) {
-  s_destroyed.remove(cookie);
+  unregister_callback(callback_kind::destroyed, cookie);
 }

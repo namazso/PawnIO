@@ -56,6 +56,16 @@ option(PAWNIO_UNRESTRICTED "Whether to build an unrestricted version of the driv
 
 set(SIGN_SCRIPT "" CACHE STRING "Signing script, called like <script> <input> <output>")
 
+if (PAWNIO_UNRESTRICTED)
+    if (NOT "${SIGN_SCRIPT}" STREQUAL "")
+        message(FATAL_ERROR "SIGN_SCRIPT cannot be used with PAWNIO_UNRESTRICTED")
+    endif ()
+
+    set(PAWNIO_NAME "${PAWNIO_NAME}_unrestricted")
+    set(PAWNIO_NAME_FULL "PawnIO_UNRESTRICTED_DEVELOPMENT_BUILD")
+    message(WARNING "Building an unrestricted development driver; module signature enforcement is disabled")
+endif ()
+
 set(CMAKE_CXX_STANDARD 20)
 
 add_compile_definitions(

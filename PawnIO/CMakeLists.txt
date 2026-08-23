@@ -126,4 +126,8 @@ add_custom_command(
         VERBATIM
 )
 
-add_custom_target(PawnIO_CAB ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.cab)
+if (PAWNIO_UNRESTRICTED)
+    add_custom_target(PawnIO_CAB DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.cab)
+else ()
+    add_custom_target(PawnIO_CAB ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${PAWNIO_NAME}.cab)
+endif ()

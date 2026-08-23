@@ -38,6 +38,10 @@ native VAProc:callback_alloc(AmxCip:cip);
 
 /// Free a callback function.
 ///
+/// The caller must first unregister or cancel every external source that can
+/// invoke the callback and wait for any invocation already in progress. The
+/// function pointer must never be called after callback_free returns.
+///
 /// @param pfn Virtual address of the callback function to free
 native Void:callback_free(VAProc:pfn);
 

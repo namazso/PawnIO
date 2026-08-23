@@ -498,6 +498,7 @@ public:
   FORCEINLINE void lock() { ExAcquireFastMutex(&_mutex); }
   FORCEINLINE bool try_lock() { return TRUE == ExTryToAcquireFastMutex(&_mutex); }
   FORCEINLINE void unlock() { ExReleaseFastMutex(&_mutex); }
+  FORCEINLINE bool owned_by_current_thread() const { return _mutex.Owner == KeGetCurrentThread(); }
 };
 
 struct context {
@@ -506,36 +507,72 @@ struct context {
   const uint8_t* original_buf;
   size_t original_buf_size;
   wrapped_fast_mutex mutex;
+  EX_RUNDOWN_REF callback_rundown;
+  bool callbacks_closing;
+};
+
+enum class to_amx_callback_state : UCHAR {
+  free,
+  active,
+  retired,
 };
 
 struct to_amx_callback_context {
   context* ctx;
   cell cip;
+  to_amx_callback_state state;
 };
 
 constexpr static size_t k_to_amx_callback_count = 0x100;
 
 static to_amx_callback_context s_to_amx_callback_data[k_to_amx_callback_count];
+static KSPIN_LOCK s_to_amx_callback_lock;
+static PDRIVER_OBJECT s_driver_object;
+
+void vm_init(PDRIVER_OBJECT driver_object) {
+  s_driver_object = driver_object;
+  KeInitializeSpinLock(&s_to_amx_callback_lock);
+}
 
 static __declspec(noinline) cell to_amx_callback_dispatch(size_t idx, cell args) {
   if (KeGetCurrentIrql() > APC_LEVEL)
-    __fastfail(FAST_FAIL_INVALID_LOCK_STATE);
-  const auto cb_ctx = &s_to_amx_callback_data[idx];
-  const auto vm_ctx = cb_ctx->ctx;
-  if (!vm_ctx)
-    __fastfail(FAST_FAIL_INVALID_JUMP_BUFFER);
-  std::unique_lock lock{vm_ctx->mutex};
-  const auto cip = cb_ctx->cip;
-  if (!cip)
-    __fastfail(FAST_FAIL_INVALID_JUMP_BUFFER);
+    return (cell)(scell)STATUS_INVALID_DEVICE_STATE;
+
+  context* vm_ctx{};
+  cell cip{};
+  bool acquired = false;
+
+  KIRQL old_irql;
+  KeAcquireSpinLock(&s_to_amx_callback_lock, &old_irql);
+  const auto& cb_ctx = s_to_amx_callback_data[idx];
+  if (cb_ctx.state == to_amx_callback_state::active
+      && cb_ctx.ctx
+      && !cb_ctx.ctx->callbacks_closing
+      && ExAcquireRundownProtection(&cb_ctx.ctx->callback_rundown)) {
+    vm_ctx = cb_ctx.ctx;
+    cip = cb_ctx.cip;
+    acquired = true;
+  }
+  KeReleaseSpinLock(&s_to_amx_callback_lock, old_irql);
+
+  if (!acquired)
+    return (cell)(scell)STATUS_INVALID_DEVICE_STATE;
+
   cell ret{};
-  const auto status = vm_callback_precall(vm_ctx, cip);
-  if (!NT_SUCCESS(status))
-    __fastfail(FAST_FAIL_GUARD_ICALL_CHECK_FAILURE);
-  const auto res = vm_ctx->loader->amx.call(cip, ret, {args});
-  vm_callback_postcall(vm_ctx);
-  if (res != amx::error::success)
-    __fastfail(FAST_FAIL_INVALID_THREAD_STATE);
+  {
+    std::unique_lock lock{vm_ctx->mutex};
+    const auto status = vm_callback_precall(vm_ctx, cip);
+    if (NT_SUCCESS(status)) {
+      const auto res = vm_ctx->loader->amx.call(cip, ret, {args});
+      vm_callback_postcall(vm_ctx);
+      if (res != amx::error::success)
+        ret = (cell)(scell)STATUS_UNSUCCESSFUL;
+    } else {
+      ret = (cell)(scell)status;
+    }
+  }
+
+  ExReleaseRundownProtection(&vm_ctx->callback_rundown);
   return ret;
 }
 
@@ -561,32 +598,84 @@ static constexpr std::array<to_amx_callback_fn, sizeof...(Indices)> make_callbac
 static constexpr auto k_to_amx_callback_fns = make_callback_array(std::make_index_sequence<k_to_amx_callback_count>{});
 
 static cell to_amx_callback_alloc(context* vm_ctx, cell cip) {
-  for (size_t i = 0; i < k_to_amx_callback_count; ++i) {
-    auto& cb_ctx = s_to_amx_callback_data[i];
-    if (cb_ctx.ctx == nullptr) {
-      if (nullptr == _InterlockedCompareExchangePointer((PVOID volatile*)&cb_ctx.ctx, vm_ctx, nullptr)) {
+  if (!vm_ctx || !cip || !s_driver_object)
+    return 0;
+
+  ObReferenceObject(s_driver_object);
+
+  cell callback{};
+  KIRQL old_irql;
+  KeAcquireSpinLock(&s_to_amx_callback_lock, &old_irql);
+  if (!vm_ctx->callbacks_closing) {
+    for (size_t i = 0; i < k_to_amx_callback_count; ++i) {
+      auto& cb_ctx = s_to_amx_callback_data[i];
+      if (cb_ctx.state == to_amx_callback_state::free) {
+        cb_ctx.ctx = vm_ctx;
         cb_ctx.cip = cip;
-        return (cell)k_to_amx_callback_fns[i];
+        cb_ctx.state = to_amx_callback_state::active;
+        callback = (cell)k_to_amx_callback_fns[i];
+        break;
       }
     }
   }
-  return 0;
+  KeReleaseSpinLock(&s_to_amx_callback_lock, old_irql);
+
+  if (!callback)
+    ObDereferenceObject(s_driver_object);
+
+  return callback;
 }
 
-static void to_amx_callback_free(context* vm_ctx, cell pfn) {
+static bool to_amx_callback_free(context* vm_ctx, cell pfn) {
   if (!pfn)
-    return;
+    return true;
+
   size_t i;
-  for (i = 0; i < k_to_amx_callback_count; ++i)
+  for (i = 0; i < k_to_amx_callback_count; ++i) {
     if (pfn == (cell)k_to_amx_callback_fns[i])
       break;
+  }
   if (i == k_to_amx_callback_count)
-    __fastfail(FAST_FAIL_ASAN_ERROR);
+    return false;
+
+  bool released = false;
+  KIRQL old_irql;
+  KeAcquireSpinLock(&s_to_amx_callback_lock, &old_irql);
   auto& cb_ctx = s_to_amx_callback_data[i];
-  if (cb_ctx.ctx != vm_ctx)
-    __fastfail(FAST_FAIL_ASAN_ERROR);
-  cb_ctx.cip = 0;
-  cb_ctx.ctx = nullptr;
+  if (cb_ctx.state == to_amx_callback_state::active && cb_ctx.ctx == vm_ctx) {
+    cb_ctx.state = to_amx_callback_state::free;
+    cb_ctx.ctx = nullptr;
+    cb_ctx.cip = 0;
+    released = true;
+  }
+  KeReleaseSpinLock(&s_to_amx_callback_lock, old_irql);
+
+  if (released)
+    ObDereferenceObject(s_driver_object);
+
+  return released;
+}
+
+static void to_amx_callbacks_begin_destroy(context* vm_ctx) {
+  KIRQL old_irql;
+  KeAcquireSpinLock(&s_to_amx_callback_lock, &old_irql);
+  vm_ctx->callbacks_closing = true;
+  KeReleaseSpinLock(&s_to_amx_callback_lock, old_irql);
+
+  ExWaitForRundownProtectionRelease(&vm_ctx->callback_rundown);
+}
+
+static void to_amx_callbacks_finish_destroy(context* vm_ctx) {
+  KIRQL old_irql;
+  KeAcquireSpinLock(&s_to_amx_callback_lock, &old_irql);
+  for (auto& cb_ctx : s_to_amx_callback_data) {
+    if (cb_ctx.state == to_amx_callback_state::active && cb_ctx.ctx == vm_ctx) {
+      cb_ctx.state = to_amx_callback_state::retired;
+      cb_ctx.ctx = nullptr;
+      cb_ctx.cip = 0;
+    }
+  }
+  KeReleaseSpinLock(&s_to_amx_callback_lock, old_irql);
 }
 
 static amx::error to_amx_callback_alloc_wrap(amx64* amx, amx64_loader* loader, void* user, cell argc, cell argv, cell& retval) {
@@ -616,7 +705,8 @@ static amx::error to_amx_callback_free_wrap(amx64* amx, amx64_loader* loader, vo
     return amx::error::access_violation;
   const auto pfn = *ppfn;
 
-  to_amx_callback_free((context*)user, pfn);
+  if (!to_amx_callback_free((context*)user, pfn))
+    return amx::error::invalid_operand;
 
   return amx::error::success;
 }
@@ -841,6 +931,8 @@ static NTSTATUS vm_load_binary_internal(context** ctx, PVOID buffer, SIZE_T size
         my_ctx->original_buf = copy;
         my_ctx->original_buf_size = size;
         my_ctx->mutex.init();
+        ExInitializeRundownProtection(&my_ctx->callback_rundown);
+        my_ctx->callbacks_closing = false;
         const auto loader = new(&my_ctx->loader_storage) amx64_loader();
         my_ctx->loader = loader;
 
@@ -912,10 +1004,12 @@ NTSTATUS vm_load_binary(PVOID* ctx, PVOID buffer, SIZE_T size) {
   }
 
   if (!NT_SUCCESS(status)) {
+    to_amx_callbacks_begin_destroy(my_ctx);
     {
       std::unique_lock lock{my_ctx->mutex};
       vm_callback_destroyed(my_ctx);
     }
+    to_amx_callbacks_finish_destroy(my_ctx);
     vm_destroy_internal(my_ctx);
     return status;
   }
@@ -992,6 +1086,11 @@ NTSTATUS vm_execute_function(PVOID ctx, PVOID in_buffer, SIZE_T in_size, PVOID o
 NTSTATUS vm_destroy(PVOID ctx) {
   if (ctx) {
     const auto my_ctx = (context*)ctx;
+    if (my_ctx->mutex.owned_by_current_thread())
+      return STATUS_DEVICE_BUSY;
+
+    to_amx_callbacks_begin_destroy(my_ctx);
+
     const auto loader = my_ctx->loader;
     const auto fn = loader->get_public("unload");
     if (fn) {
@@ -1008,6 +1107,7 @@ NTSTATUS vm_destroy(PVOID ctx) {
         std::unique_lock lock{my_ctx->mutex};
         vm_callback_destroyed(my_ctx);
       }
+      to_amx_callbacks_finish_destroy(my_ctx);
       return vm_destroy_internal(my_ctx);
     }
   }

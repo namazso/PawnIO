@@ -84,8 +84,8 @@ find_package(WDK REQUIRED)
 
 add_link_options(
         /DEBUG
-        /OPT:REF
-        /OPT:ICF=10
+        $<$<NOT:$<CONFIG:Debug>>:/OPT:REF>
+        $<$<NOT:$<CONFIG:Debug>>:/OPT:ICF=10>
         /EMITPOGOPHASEINFO
         /FILEALIGN:0x1000
         $<$<STREQUAL:"${WDK_PLATFORM}","x64">:/CETCOMPAT>
@@ -131,7 +131,7 @@ target_compile_options(PawnIOLib PRIVATE /EHsc)
 target_link_libraries(PawnIOLib PRIVATE ntdll.lib PawnIOInclude)
 
 target_link_options(PawnIOLib PRIVATE
-        /ENTRY:DllEntry
+        $<$<NOT:$<CONFIG:Debug>>:/ENTRY:DllEntry>
 )
 
 target_include_directories(PawnIOLib PUBLIC PawnIOLib/include)
